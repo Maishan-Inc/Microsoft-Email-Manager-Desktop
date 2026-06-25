@@ -587,3 +587,57 @@ pub fn reset_password(state: State<'_, AppState>, new_password: String) -> AppRe
         Ok(())
     })
 }
+
+#[derive(Serialize)]
+pub struct CredsReveal {
+    pub email: String,
+    pub client_id: String,
+    pub refresh_token: String,
+    pub combined: String,
+}
+
+/// 揭示某账号的完整凭据。需二次校验：开启 2FA 时校验动态码，否则校验主密码。
+#[tauri::command]
+pub fn reveal_credentials(
+    state: State<'_, AppState>,
+    email: String,
+    secret: String,
+) -> AppResult<CredsReveal> {
+    state.with_vault(|v| {
+        let auth_mode = db::get_meta(&v.conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
+        let totp_enc = db::get_meta(&v.conn, "totp_secret_enc")?;
+        let ok = if auth_mode != "password_only" && totp_enc.is_some() {
+            let totp = v.key.decrypt_str(&totp_enc.unwrap())?;
+            security::totp_verify(&totp, secret.trim())
+        } else {
+            let salt_b64 = db::get_meta(&v.conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
+            let salt = crypto::b64_decode(&salt_b64)?;
+            let kek = crypto::derive_key(&secret, &salt)?;
+            match db::get_meta(&v.conn, "dek_wrapped_pw")? {
+                Some(w) => crypto::unwrap_dek(&kek, &w).is_ok(),
+                None => false,
+            }
+        };
+        if !ok {
+            return Err(AppError::Other("验证失败".into()));
+        }
+        let creds = db::get_credentials(&v.conn, &v.key, &email)?;
+        let combined = format!("{}----{}", creds.refresh_token, creds.client_id);
+        Ok(CredsReveal {
+            email: creds.email,
+            client_id: creds.client_id,
+            refresh_token: creds.refresh_token,
+            combined,
+        })
+    })
+}
+
+/// 当前认证模式（供前端决定揭示凭据时提示密码还是动态码）。
+#[tauri::command]
+pub fn auth_mode_info(state: State<'_, AppState>) -> AppResult<bool> {
+    state.with_vault(|v| {
+        let auth_mode = db::get_meta(&v.conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
+        let has_totp = db::get_meta(&v.conn, "totp_secret_enc")?.is_some();
+        Ok(auth_mode != "password_only" && has_totp)
+    })
+}

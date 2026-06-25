@@ -16,6 +16,7 @@ import type {
   MnemonicGen,
   SecuritySetup,
   UnlockResult,
+  CredsReveal,
 } from "./types";
 
 export const api = {
@@ -50,6 +51,9 @@ export const api = {
     tagKeys: string[],
   ) =>
     invoke<void>("update_classification", { email, categoryKey, tagKeys }),
+  revealCredentials: (email: string, secret: string) =>
+    invoke<CredsReveal>("reveal_credentials", { email, secret }),
+  authModeInfo: () => invoke<boolean>("auth_mode_info"),
   importAccounts: (text: string, authMethod: string) =>
     invoke<ImportResult>("import_accounts", { text, authMethod }),
   testCredentials: (creds: AccountCredentials) =>

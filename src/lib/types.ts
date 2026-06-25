@@ -141,3 +141,11 @@ export interface UnlockResult {
   needs_2fa: boolean;
 }
 
+/** 揭示的完整凭据 */
+export interface CredsReveal {
+  email: string;
+  client_id: string;
+  refresh_token: string;
+  combined: string;
+}
+

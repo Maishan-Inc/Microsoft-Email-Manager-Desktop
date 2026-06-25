@@ -73,6 +73,7 @@
       <select bind:value={form.auth_method}>
         <option value="imap">IMAP</option>
         <option value="graph">Graph API</option>
+        <option value="oauth2">OAuth2</option>
       </select>
       <input placeholder={t("add.email")} bind:value={form.email} />
       <input placeholder={t("add.clientId")} bind:value={form.client_id} />
@@ -88,10 +89,12 @@
       <select bind:value={importAuth}>
         <option value="imap">IMAP</option>
         <option value="graph">Graph API</option>
+        <option value="oauth2">OAuth2</option>
       </select>
       <p class="muted small fmt">
         IMAP：邮箱----刷新令牌----客户端ID<br />
-        Graph：邮箱----密码----client_id----令牌
+        Graph：邮箱----密码----client_id----令牌<br />
+        OAuth2：邮箱----密码----client_id----refresh_token
       </p>
       <textarea rows="8" placeholder={t("add.bulkHint")} bind:value={importText}
       ></textarea>

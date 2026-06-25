@@ -2,7 +2,7 @@
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
-  import logo from "../assets/logo-black.svg";
+  import logo from "../assets/logo-black.png";
 
   let { initialized, onUnlocked }: { initialized: boolean; onUnlocked: () => void } =
     $props();
@@ -179,6 +179,8 @@
   .logo {
     width: 32px;
     height: 32px;
+    object-fit: contain;
+    filter: invert(var(--logo-invert));
   }
   .brand strong {
     font-size: 17px;

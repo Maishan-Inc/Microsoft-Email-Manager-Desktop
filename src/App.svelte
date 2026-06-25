@@ -2,9 +2,11 @@
   import { api, errMsg } from "./lib/api";
   import { toast, showToast } from "./lib/toast.svelte";
   import { t } from "./lib/i18n.svelte";
+  import { fade } from "svelte/transition";
   import Unlock from "./components/Unlock.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import Dashboard from "./components/Dashboard.svelte";
+  import QuickView from "./components/QuickView.svelte";
   import Accounts from "./components/Accounts.svelte";
   import AddEmail from "./components/AddEmail.svelte";
   import Categories from "./components/Categories.svelte";
@@ -14,6 +16,7 @@
 
   type View =
     | "dashboard"
+    | "quick"
     | "accounts"
     | "add"
     | "categories"
@@ -90,21 +93,27 @@
   <div class="shell">
     <Sidebar current={sidebarCurrent} onnavigate={navigate} onlock={lock} />
     <main class:full={view === "emails"}>
-      {#if view === "dashboard"}
-        <Dashboard onnavigate={navigate} />
-      {:else if view === "accounts"}
-        <Accounts onopenmail={openMail} />
-      {:else if view === "add"}
-        <AddEmail onadded={() => navigate("accounts")} />
-      {:else if view === "categories"}
-        <Categories />
-      {:else if view === "settings"}
-        <Settings />
-      {:else if view === "emails"}
-        {#key selectedEmail}
-          <Emails initialEmail={selectedEmail} />
-        {/key}
-      {/if}
+      {#key view}
+        <div class="route" in:fade={{ duration: 150 }}>
+          {#if view === "dashboard"}
+            <Dashboard onnavigate={navigate} />
+          {:else if view === "quick"}
+            <QuickView />
+          {:else if view === "accounts"}
+            <Accounts onopenmail={openMail} />
+          {:else if view === "add"}
+            <AddEmail onadded={() => navigate("accounts")} />
+          {:else if view === "categories"}
+            <Categories />
+          {:else if view === "settings"}
+            <Settings />
+          {:else if view === "emails"}
+            {#key selectedEmail}
+              <Emails initialEmail={selectedEmail} />
+            {/key}
+          {/if}
+        </div>
+      {/key}
     </main>
   </div>
 {/if}
@@ -132,5 +141,8 @@
   main.full {
     padding: var(--s-md);
     overflow: hidden;
+  }
+  .route {
+    min-height: 100%;
   }
 </style>

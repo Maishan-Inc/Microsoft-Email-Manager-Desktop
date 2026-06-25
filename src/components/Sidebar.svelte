@@ -1,8 +1,8 @@
 <script lang="ts">
-  import logoBlack from "../assets/logo-black.svg";
+  import logoBlack from "../assets/logo-black.png";
   import { t, type MsgKey } from "../lib/i18n.svelte";
 
-  type View = "dashboard" | "accounts" | "add" | "categories" | "settings";
+  type View = "dashboard" | "quick" | "accounts" | "add" | "categories" | "settings";
 
   let {
     current,
@@ -17,6 +17,7 @@
   // 内联图标（Lucide 风，24x24 stroke）
   const icons: Record<string, string> = {
     dashboard: "M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z",
+    quick: "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
     accounts: "M3 5h18v14H3z M3 6l9 7 9-7",
     add: "M12 3a9 9 0 100 18 9 9 0 000-18z M12 8v8 M8 12h8",
     categories:
@@ -28,6 +29,7 @@
 
   const items: { key: View; label: MsgKey }[] = [
     { key: "dashboard", label: "nav.dashboard" },
+    { key: "quick", label: "nav.quick" },
     { key: "accounts", label: "nav.accounts" },
     { key: "add", label: "nav.add" },
     { key: "categories", label: "nav.categories" },
@@ -87,6 +89,8 @@
   .logo {
     width: 30px;
     height: 30px;
+    object-fit: contain;
+    filter: invert(var(--logo-invert));
   }
   .brand-name {
     font-weight: 600;

@@ -27,11 +27,12 @@ export function setLang(lang: Lang) {
 
 /** 文案表：每个 key 给 zh / en 两版。新增 UI 时往这里加键。 */
 const M = {
-  "app.name": { zh: "Microsoft 邮箱管理", en: "Microsoft Email Manager" },
+  "app.name": { zh: "Microsoft-Email-Manager", en: "Microsoft-Email-Manager" },
   "app.starting": { zh: "启动中…", en: "Starting…" },
 
   // 导航
   "nav.dashboard": { zh: "首页", en: "Home" },
+  "nav.quick": { zh: "快捷查看", en: "Quick View" },
   "nav.accounts": { zh: "邮箱账户管理", en: "Accounts" },
   "nav.add": { zh: "添加邮箱", en: "Add Email" },
   "nav.categories": { zh: "分类编辑", en: "Categories" },
@@ -81,6 +82,32 @@ const M = {
   "acc.export": { zh: "导出", en: "Export" },
   "acc.lastCheck": { zh: "上次检查", en: "Last check" },
   "acc.never": { zh: "从未", en: "Never" },
+  "acc.search": { zh: "搜索邮箱…", en: "Search mailbox…" },
+  "acc.allDomains": { zh: "全部后缀", en: "All domains" },
+  "acc.allCategories": { zh: "全部分类", en: "All categories" },
+  "acc.allTags": { zh: "全部标签", en: "All tags" },
+  "acc.batch": { zh: "批量管理", en: "Batch" },
+  "acc.batchExit": { zh: "退出批量", en: "Exit batch" },
+  "acc.selectAll": { zh: "全选", en: "Select all" },
+  "acc.clearSel": { zh: "清除", en: "Clear" },
+  "acc.deleteSel": { zh: "删除所选", en: "Delete selected" },
+  "acc.selectedN": { zh: "已选 {n}", en: "{n} selected" },
+  "acc.config": { zh: "配置", en: "Configure" },
+  "acc.noMatch": { zh: "没有匹配的邮箱", en: "No matching mailboxes" },
+
+  // 邮箱配置弹窗
+  "cfg.title": { zh: "邮箱配置", en: "Mailbox settings" },
+  "cfg.email": { zh: "邮箱地址", en: "Email address" },
+  "cfg.token": { zh: "组合令牌", en: "Combined token" },
+  "cfg.reveal": { zh: "显示", en: "Reveal" },
+  "cfg.hide": { zh: "隐藏", en: "Hide" },
+  "cfg.prompt2fa": { zh: "输入 2FA 动态码以显示完整令牌", en: "Enter 2FA code to reveal the full token" },
+  "cfg.promptPw": { zh: "输入主密码以显示完整令牌", en: "Enter master password to reveal the full token" },
+  "cfg.verifyShow": { zh: "验证并显示", en: "Verify & show" },
+  "cfg.classification": { zh: "分类与标签", en: "Category & tags" },
+  "cfg.category": { zh: "分类", en: "Category" },
+  "cfg.tags": { zh: "标签", en: "Tags" },
+  "cfg.noCategory": { zh: "无分类", en: "No category" },
 
   // 添加邮箱
   "add.title": { zh: "添加邮箱", en: "Add Email" },
@@ -134,6 +161,22 @@ const M = {
   "mail.nextPage": { zh: "下一页", en: "Next" },
   "mail.pageInfo": { zh: "第 {page} 页 / 共 {total} 封", en: "Page {page} / {total} total" },
   "mail.pickAccount": { zh: "请先在「添加邮箱」添加账号", en: "Add an account first" },
+  "mail.account": { zh: "账户", en: "Account" },
+  "mail.search": { zh: "搜索主题 / 发件人", en: "Search subject / sender" },
+  "mail.total": { zh: "邮件总数", en: "Total" },
+  "mail.unread": { zh: "未读", en: "Unread" },
+  "mail.todayCount": { zh: "今日", en: "Today" },
+  "mail.attachments": { zh: "附件", en: "Attachments" },
+  "mail.detail": { zh: "邮件详情", en: "Email detail" },
+  "mail.tabPlain": { zh: "纯文本", en: "Plain text" },
+  "mail.tabRaw": { zh: "源码", en: "Source" },
+  "mail.noContent": { zh: "（无正文）", en: "(no content)" },
+  "mail.fRead": { zh: "已读", en: "Read" },
+  "mail.fUnread": { zh: "未读", en: "Unread" },
+  "mail.fAllStatus": { zh: "全部状态", en: "All status" },
+  "mail.openInQuick": { zh: "在快捷查看打开", en: "Open in Quick View" },
+  "quick.empty": { zh: "尚未指定邮箱。在邮件页点击「在快捷查看打开」即可固定一个邮箱在此显示。", en: "No mailbox pinned. Use “Open in Quick View” on the mail page to pin one here." },
+  "quick.change": { zh: "更换邮箱", en: "Change mailbox" },
 
   // 解锁 / 首次设置
   "unlock.subtitleSetup": { zh: "首次使用，请设置一个主密码", en: "First run — set a master password" },
@@ -207,7 +250,7 @@ const M = {
 
   "ob.done.title": { zh: "你已完成恢复助记词配置", en: "Recovery setup complete" },
   "ob.done.desc": { zh: "一切就绪，开始使用吧。", en: "All set — let's get started." },
-  "ob.done.start": { zh: "开始使用 Microsoft Email Manager", en: "Start using Microsoft Email Manager" },
+  "ob.done.start": { zh: "开始使用 Microsoft-Email-Manager", en: "Start using Microsoft-Email-Manager" },
 
   "ob.firstrun.title": { zh: "你之前用过本软件吗？", en: "Have you used this app before?" },
   "ob.firstrun.first": { zh: "我是第一次使用", en: "First time here" },

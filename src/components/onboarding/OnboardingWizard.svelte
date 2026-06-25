@@ -2,8 +2,10 @@
   import { api, errMsg } from "../../lib/api";
   import { showToast } from "../../lib/toast.svelte";
   import { t, i18n } from "../../lib/i18n.svelte";
-  import logo from "../../assets/logo-black.svg";
+  import logo from "../../assets/logo-black.png";
   import Icon from "../Icon.svelte";
+  import confetti from "canvas-confetti";
+  import { fly } from "svelte/transition";
   import type { TotpSetup } from "../../lib/types";
 
   let { onComplete }: { onComplete: () => void } = $props();
@@ -183,7 +185,9 @@
     const need = Math.min(4, mnemonic.length);
     while (idx.size < need) idx.add(Math.floor(Math.random() * mnemonic.length));
     hiddenIdx = [...idx].sort((a, b) => a - b);
-    fillWords = {};
+    const fw: Record<number, string> = {};
+    for (const i of hiddenIdx) fw[i] = "";
+    fillWords = fw;
     step = "mnemonicVerify";
   }
 
@@ -243,10 +247,34 @@
       busy = false;
     }
   }
+
+  // 完成页放烟花
+  function fireworks() {
+    const end = Date.now() + 2600;
+    const colors = ["#0070f3", "#7928ca", "#ff0080", "#f5a623", "#50e3c2"];
+    (function frame() {
+      confetti({
+        particleCount: 7,
+        startVelocity: 32,
+        spread: 360,
+        ticks: 70,
+        origin: { x: Math.random(), y: Math.random() * 0.5 },
+        colors,
+        disableForReducedMotion: true,
+        zIndex: 9999,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  }
+  $effect(() => {
+    if (step === "done") fireworks();
+  });
 </script>
 
 <div class="onb">
   <div class="panel" class:wide={step === "mnemonicShow" || step === "mnemonicVerify"}>
+    {#key step}
+    <div class="step" in:fly={{ y: 10, duration: 220 }}>
     {#if step === "splash"}
       <div class="splash">
         <img src={logo} alt="logo" class="splash-logo" />
@@ -345,7 +373,7 @@
       </div>
       <div class="btn-row">
         <button onclick={() => (step = "mnemonicShow")}>{t("common.back")}</button>
-        <button class="primary" disabled={busy} onclick={confirmMnemonic}>{t("common.confirm")}</button>
+        <button class="primary" disabled={busy} onclick={confirmMnemonic}>{busy ? t("unlock.processing") : t("common.confirm")}</button>
       </div>
     {:else if step === "done"}
       <div class="done">
@@ -380,6 +408,8 @@
         </div>
       </div>
     {/if}
+    </div>
+    {/key}
   </div>
 </div>
 
@@ -396,19 +426,23 @@
     padding: var(--s-lg);
   }
   .panel {
-    width: 440px;
+    width: 520px;
     max-width: 100%;
     background: var(--canvas);
     border-radius: var(--r-xl);
-    padding: var(--s-xl);
+    padding: var(--s-2xl) var(--s-xl);
     box-shadow: var(--shadow-5);
     display: flex;
     flex-direction: column;
-    gap: var(--s-sm);
     animation: rise 0.35s ease both;
   }
   .panel.wide {
-    width: 560px;
+    width: 720px;
+  }
+  .step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-sm);
   }
   @keyframes rise {
     from { opacity: 0; transform: translateY(12px); }
@@ -419,7 +453,7 @@
     font-size: 19px;
   }
   .big {
-    height: 44px;
+    height: 48px;
     font-size: 15px;
   }
   .btn-col {
@@ -449,6 +483,8 @@
   .splash-logo {
     width: 72px;
     height: 72px;
+    object-fit: contain;
+    filter: invert(var(--logo-invert));
     animation: pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
   }
   .splash-title {
@@ -570,8 +606,8 @@
     background: var(--canvas-soft);
     border: 1px solid var(--hairline);
     border-radius: var(--r-sm);
-    padding: 6px 10px;
-    font-size: 13px;
+    padding: 10px 12px;
+    font-size: 14px;
     font-family: var(--font-mono);
   }
   .wi {
@@ -580,9 +616,9 @@
     width: 16px;
   }
   .word-in {
-    height: 34px;
+    height: 42px;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 14px;
   }
 
   /* done */

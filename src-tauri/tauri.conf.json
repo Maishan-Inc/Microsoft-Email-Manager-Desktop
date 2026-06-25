@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Microsoft Email Manager Desktop",
+  "productName": "Microsoft-Email-Manager",
   "version": "0.1.0",
   "identifier": "com.maishan.mem.desktop",
   "build": {
@@ -13,11 +13,11 @@
     "windows": [
       {
         "label": "main",
-        "title": "Microsoft Email Manager Desktop",
-        "width": 1100,
-        "height": 760,
-        "minWidth": 880,
-        "minHeight": 600,
+        "title": "Microsoft-Email-Manager",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
         "resizable": true,
         "center": true
       }
