@@ -22,6 +22,10 @@ export interface AccountInfo {
   health_checked_at: string | null;
   created_at: string;
   updated_at: string;
+  // 通知与后台刷新（阶段一D 起后端返回）
+  notify_enabled: boolean;
+  poll_interval_secs: number | null;
+  last_sync_at: string | null;
 }
 
 export interface ClassificationOption {
@@ -76,4 +80,29 @@ export interface HealthResult {
   email: string;
   score: number;
   summary: string;
+}
+
+/** 最近邮件活动（后台刷新写入，供仪表盘统计） */
+export interface MailActivityItem {
+  email: string;
+  message_id: string;
+  subject: string;
+  from_email: string;
+  received_at: string;
+}
+
+/** 仪表盘统计 */
+export interface DashboardStats {
+  account_count: number;
+  health_avg: number;
+  healthy_count: number;
+  unchecked_count: number;
+  today_mail: number;
+  recent: MailActivityItem[];
+}
+
+/** 应用级设置（后台刷新等；语言/主题在前端本地持久化） */
+export interface AppSettings {
+  bg_refresh_enabled: boolean;
+  bg_refresh_interval_secs: number;
 }

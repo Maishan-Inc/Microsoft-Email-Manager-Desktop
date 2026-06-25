@@ -6,7 +6,10 @@ use crate::crypto::{self, DerivedKey};
 use crate::error::{AppError, AppResult};
 use crate::models::{AccountCredentials, AccountInfo, ClassificationOption};
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
+
+/// 默认后台刷新间隔（秒）
+pub const DEFAULT_POLL_SECS: i64 = 300;
 
 /// 打开数据库并执行迁移
 pub fn open(path: &std::path::Path) -> AppResult<Connection> {
@@ -36,6 +39,9 @@ fn migrate(conn: &Connection) -> AppResult<()> {
             health_score      INTEGER NOT NULL DEFAULT 0,
             health_summary    TEXT NOT NULL DEFAULT '未检查',
             health_checked_at TEXT,
+            notify_enabled    INTEGER NOT NULL DEFAULT 0,
+            poll_interval_secs INTEGER,
+            last_sync_at      TEXT,
             created_at        TEXT NOT NULL,
             updated_at        TEXT NOT NULL
         );
@@ -62,9 +68,47 @@ fn migrate(conn: &Connection) -> AppResult<()> {
             tag_keys   TEXT NOT NULL DEFAULT '[]',
             PRIMARY KEY (email, message_id)
         );
+
+        CREATE TABLE IF NOT EXISTS mail_activity (
+            email      TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            subject    TEXT NOT NULL DEFAULT '',
+            from_email TEXT NOT NULL DEFAULT '',
+            received_at TEXT NOT NULL DEFAULT '',
+            seen_at    TEXT NOT NULL,
+            is_new     INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (email, message_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_mail_activity_seen ON mail_activity(seen_at);
         "#,
     )?;
+
+    // 旧库（v1）升级：幂等补列。
+    ensure_column(conn, "accounts", "notify_enabled", "INTEGER NOT NULL DEFAULT 0")?;
+    ensure_column(conn, "accounts", "poll_interval_secs", "INTEGER")?;
+    ensure_column(conn, "accounts", "last_sync_at", "TEXT")?;
+
     set_meta(conn, "schema_version", &SCHEMA_VERSION.to_string())?;
+    Ok(())
+}
+
+/// 若列不存在则 ALTER 添加（SQLite 无 IF NOT EXISTS 列语法）。
+fn ensure_column(conn: &Connection, table: &str, col: &str, decl: &str) -> AppResult<()> {
+    let exists: bool = {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let names = stmt.query_map([], |r| r.get::<_, String>(1))?;
+        let mut found = false;
+        for n in names {
+            if n? == col {
+                found = true;
+                break;
+            }
+        }
+        found
+    };
+    if !exists {
+        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {col} {decl}"), [])?;
+    }
     Ok(())
 }
 
@@ -178,7 +222,8 @@ pub fn list_accounts(conn: &Connection, key: &DerivedKey) -> AppResult<Vec<Accou
     let mut stmt = conn.prepare(
         r#"
         SELECT email, auth_method, client_id_enc, status, category_key, tag_keys,
-               health_score, health_summary, health_checked_at, created_at, updated_at
+               health_score, health_summary, health_checked_at, created_at, updated_at,
+               notify_enabled, poll_interval_secs, last_sync_at
         FROM accounts ORDER BY created_at DESC
         "#,
     )?;
@@ -195,6 +240,9 @@ pub fn list_accounts(conn: &Connection, key: &DerivedKey) -> AppResult<Vec<Accou
             r.get::<_, Option<String>>(8)?, // health_checked_at
             r.get::<_, String>(9)?,         // created_at
             r.get::<_, String>(10)?,        // updated_at
+            r.get::<_, i64>(11)?,           // notify_enabled
+            r.get::<_, Option<i64>>(12)?,   // poll_interval_secs
+            r.get::<_, Option<String>>(13)?, // last_sync_at
         ))
     })?;
 
@@ -216,9 +264,157 @@ pub fn list_accounts(conn: &Connection, key: &DerivedKey) -> AppResult<Vec<Accou
             health_checked_at: r.8,
             created_at: r.9,
             updated_at: r.10,
+            notify_enabled: r.11 != 0,
+            poll_interval_secs: r.12,
+            last_sync_at: r.13,
         });
     }
     Ok(out)
+}
+
+/// 设置某账号的通知开关与（可选）轮询间隔。
+pub fn set_account_notify(
+    conn: &Connection,
+    email: &str,
+    enabled: bool,
+    interval_secs: Option<i64>,
+) -> AppResult<()> {
+    let n = conn.execute(
+        "UPDATE accounts SET notify_enabled = ?2, poll_interval_secs = ?3, updated_at = ?4 WHERE email = ?1",
+        params![email, enabled as i64, interval_secs, now_iso()],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(email.to_string()));
+    }
+    Ok(())
+}
+
+/// 后台轮询目标：开启通知的账号 + 其间隔 + 上次同步时间。
+pub struct NotifyTarget {
+    pub email: String,
+    pub interval_secs: i64,
+    pub last_sync_at: Option<String>,
+}
+
+pub fn list_notify_targets(conn: &Connection, default_secs: i64) -> AppResult<Vec<NotifyTarget>> {
+    let mut stmt = conn.prepare(
+        "SELECT email, poll_interval_secs, last_sync_at FROM accounts WHERE notify_enabled = 1",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(NotifyTarget {
+            email: r.get::<_, String>(0)?,
+            interval_secs: r.get::<_, Option<i64>>(1)?.unwrap_or(default_secs).max(30),
+            last_sync_at: r.get::<_, Option<String>>(2)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// 所有账号邮箱（供手动「刷新统计」遍历）。
+pub fn list_account_emails(conn: &Connection) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT email FROM accounts ORDER BY created_at DESC")?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// 记录一条邮件活动；已存在则忽略。返回是否为新插入。
+pub fn record_activity(
+    conn: &Connection,
+    email: &str,
+    message_id: &str,
+    subject: &str,
+    from_email: &str,
+    received_at: &str,
+    is_new: bool,
+) -> AppResult<bool> {
+    let n = conn.execute(
+        "INSERT OR IGNORE INTO mail_activity
+            (email, message_id, subject, from_email, received_at, seen_at, is_new)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![email, message_id, subject, from_email, received_at, now_iso(), is_new as i64],
+    )?;
+    Ok(n > 0)
+}
+
+pub fn set_last_sync(conn: &Connection, email: &str) -> AppResult<()> {
+    conn.execute(
+        "UPDATE accounts SET last_sync_at = ?2 WHERE email = ?1",
+        params![email, now_iso()],
+    )?;
+    Ok(())
+}
+
+pub fn get_last_sync(conn: &Connection, email: &str) -> AppResult<Option<String>> {
+    let v: Option<Option<String>> = conn
+        .query_row(
+            "SELECT last_sync_at FROM accounts WHERE email = ?1",
+            params![email],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .optional()?;
+    Ok(v.flatten())
+}
+
+/// 清理 7 天前的邮件活动，避免无限增长。
+pub fn prune_activity(conn: &Connection) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM mail_activity WHERE seen_at < datetime('now', '-7 days')",
+        [],
+    )?;
+    Ok(())
+}
+
+/// 仪表盘统计：账号数 / 健康聚合 / 当日新邮件 / 最近活动。
+pub fn dashboard_stats(conn: &Connection) -> AppResult<crate::models::DashboardStats> {
+    let account_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM accounts", [], |r| r.get(0))?;
+    let healthy_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM accounts WHERE health_checked_at IS NOT NULL AND health_score >= 100",
+        [],
+        |r| r.get(0),
+    )?;
+    let unchecked_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM accounts WHERE health_checked_at IS NULL",
+        [],
+        |r| r.get(0),
+    )?;
+    let health_avg: f64 = conn
+        .query_row(
+            "SELECT AVG(health_score) FROM accounts WHERE health_checked_at IS NOT NULL",
+            [],
+            |r| r.get::<_, Option<f64>>(0),
+        )?
+        .unwrap_or(0.0);
+    let today_mail: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mail_activity WHERE is_new = 1 AND substr(seen_at,1,10) = strftime('%Y-%m-%d','now')",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let mut stmt = conn.prepare(
+        "SELECT email, message_id, subject, from_email, received_at
+         FROM mail_activity ORDER BY seen_at DESC LIMIT 12",
+    )?;
+    let recent = stmt
+        .query_map([], |r| {
+            Ok(crate::models::MailActivityItem {
+                email: r.get(0)?,
+                message_id: r.get(1)?,
+                subject: r.get(2)?,
+                from_email: r.get(3)?,
+                received_at: r.get(4)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(crate::models::DashboardStats {
+        account_count,
+        health_avg: health_avg.round() as i64,
+        healthy_count,
+        unchecked_count,
+        today_mail,
+        recent,
+    })
 }
 
 pub fn delete_account(conn: &Connection, email: &str) -> AppResult<()> {

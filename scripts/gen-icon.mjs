@@ -1,14 +1,50 @@
-// 生成一个纯色 512x512 PNG 作为应用图标源，供 `tauri icon` 使用。
+// 生成 512x512 PNG 作为应用图标源，供 `pnpm tauri icon` 使用。
+// 图形：墨黑圆角方底 + 白色「层叠文档」字形（与 src/assets/logo-*.svg 一致的观感）。
 // 无第三方依赖，使用 Node 内置 zlib 手写最小 PNG。
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
 const W = 512;
 const H = 512;
-// 主题蓝 #3b82f6
-const [R, G, B] = [0x3b, 0x82, 0xf6];
 
-// 构造 RGBA 原始数据，每行前置 filter 字节 0
+// 颜色（DESIGN.md ink / white）
+const INK = [0x17, 0x17, 0x17];
+const WHITE = [0xff, 0xff, 0xff];
+
+// 圆角矩形命中测试
+function inRR(px, py, x0, y0, x1, y1, r) {
+  if (px < x0 || px >= x1 || py < y0 || py >= y1) return false;
+  const cx = px < x0 + r ? x0 + r : px > x1 - r ? x1 - r : px;
+  const cy = py < y0 + r ? y0 + r : py > y1 - r ? y1 - r : py;
+  const dx = px - cx;
+  const dy = py - cy;
+  return dx * dx + dy * dy <= r * r;
+}
+
+// 三张层叠的「纸」：从右上（后）到左下（前），各带墨色描边形成分隔。
+const SR = 30; // 纸圆角
+const HALO = 9; // 纸之间的墨色间隔
+// 中间纸居中
+const B = [151, 151, 361, 361];
+const A = [B[0] + 22, B[1] - 22, B[2] + 22, B[3] - 22]; // 后
+const C = [B[0] - 22, B[1] + 22, B[2] - 22, B[3] + 22]; // 前
+
+function colorAt(x, y) {
+  let c = null; // null = 透明
+  // 圆角方底（墨黑）
+  if (inRR(x, y, 40, 40, 472, 472, 96)) c = INK;
+  if (c === null) return null;
+  // 后纸
+  if (inRR(x, y, A[0], A[1], A[2], A[3], SR)) c = WHITE;
+  // 中纸（先描边后填白）
+  if (inRR(x, y, B[0] - HALO, B[1] - HALO, B[2] + HALO, B[3] + HALO, SR + HALO)) c = INK;
+  if (inRR(x, y, B[0], B[1], B[2], B[3], SR)) c = WHITE;
+  // 前纸
+  if (inRR(x, y, C[0] - HALO, C[1] - HALO, C[2] + HALO, C[3] + HALO, SR + HALO)) c = INK;
+  if (inRR(x, y, C[0], C[1], C[2], C[3], SR)) c = WHITE;
+  return c;
+}
+
 const stride = W * 4;
 const raw = Buffer.alloc((stride + 1) * H);
 for (let y = 0; y < H; y++) {
@@ -16,14 +52,16 @@ for (let y = 0; y < H; y++) {
   raw[rowStart] = 0; // filter: none
   for (let x = 0; x < W; x++) {
     const p = rowStart + 1 + x * 4;
-    // 画一个简单的圆角观感：边缘留白透明
-    const dx = x - W / 2;
-    const dy = y - H / 2;
-    const inside = Math.abs(dx) < 220 && Math.abs(dy) < 220;
-    raw[p] = R;
-    raw[p + 1] = G;
-    raw[p + 2] = B;
-    raw[p + 3] = inside ? 255 : 0;
+    const c = colorAt(x, y);
+    if (c === null) {
+      raw[p] = raw[p + 1] = raw[p + 2] = 0;
+      raw[p + 3] = 0; // 透明
+    } else {
+      raw[p] = c[0];
+      raw[p + 1] = c[1];
+      raw[p + 2] = c[2];
+      raw[p + 3] = 255;
+    }
   }
 }
 
@@ -60,4 +98,4 @@ const png = Buffer.concat([
 ]);
 
 writeFileSync(new URL("./appicon.png", import.meta.url), png);
-console.log("已生成 appicon.png");
+console.log("已生成 appicon.png（层叠文档图标）");

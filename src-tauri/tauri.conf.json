@@ -30,6 +30,8 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "app", "dmg", "deb", "appimage", "rpm"],
+    "publisher": "Maishan Inc.",
+    "copyright": "© 2026 Maishan Inc.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -39,6 +41,12 @@
     ],
     "category": "Productivity",
     "shortDescription": "本地化 Microsoft 邮箱账户与邮件管理",
-    "longDescription": "数据全本地存储、凭据加密、支持导出的 Microsoft 邮箱管理桌面端。"
+    "longDescription": "数据全本地存储、凭据加密、支持导出的 Microsoft 邮箱管理桌面端。",
+    "windows": {
+      "nsis": {
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true
+      }
+    }
   }
 }

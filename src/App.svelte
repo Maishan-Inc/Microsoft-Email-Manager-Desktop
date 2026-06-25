@@ -1,14 +1,29 @@
 <script lang="ts">
   import { api, errMsg } from "./lib/api";
   import { toast, showToast } from "./lib/toast.svelte";
+  import { t } from "./lib/i18n.svelte";
   import Unlock from "./components/Unlock.svelte";
+  import Sidebar from "./components/Sidebar.svelte";
+  import Dashboard from "./components/Dashboard.svelte";
   import Accounts from "./components/Accounts.svelte";
+  import AddEmail from "./components/AddEmail.svelte";
+  import Categories from "./components/Categories.svelte";
+  import Settings from "./components/Settings.svelte";
   import Emails from "./components/Emails.svelte";
+
+  type View =
+    | "dashboard"
+    | "accounts"
+    | "add"
+    | "categories"
+    | "settings"
+    | "emails";
 
   let ready = $state(false);
   let initialized = $state(false);
   let unlocked = $state(false);
-  let view = $state<"accounts" | "emails">("accounts");
+  let view = $state<View>("dashboard");
+  let selectedEmail = $state<string>("");
 
   async function loadStatus() {
     try {
@@ -21,12 +36,12 @@
       ready = true;
     }
   }
-
   loadStatus();
 
   function onUnlocked() {
     unlocked = true;
     initialized = true;
+    view = "dashboard";
   }
 
   async function lock() {
@@ -36,31 +51,41 @@
       unlocked = false;
     }
   }
+
+  function navigate(v: View) {
+    view = v;
+  }
+  function openMail(email: string) {
+    selectedEmail = email;
+    view = "emails";
+  }
+
+  // 侧栏高亮：邮件视图归属「账户」
+  let sidebarCurrent = $derived(view === "emails" ? "accounts" : view);
 </script>
 
 {#if !ready}
-  <div class="center muted">启动中…</div>
+  <div class="center muted">{t("app.starting")}</div>
 {:else if !unlocked}
   <Unlock {initialized} {onUnlocked} />
 {:else}
-  <div class="app">
-    <header>
-      <strong>Microsoft Email Manager Desktop</strong>
-      <nav>
-        <button class:active={view === "accounts"} onclick={() => (view = "accounts")}>
-          账号管理
-        </button>
-        <button class:active={view === "emails"} onclick={() => (view = "emails")}>
-          邮件查看
-        </button>
-      </nav>
-      <button onclick={lock}>🔒 锁定</button>
-    </header>
+  <div class="shell">
+    <Sidebar current={sidebarCurrent} onnavigate={navigate} onlock={lock} />
     <main class:full={view === "emails"}>
-      {#if view === "accounts"}
-        <Accounts />
-      {:else}
-        <Emails />
+      {#if view === "dashboard"}
+        <Dashboard onnavigate={navigate} />
+      {:else if view === "accounts"}
+        <Accounts onopenmail={openMail} />
+      {:else if view === "add"}
+        <AddEmail onadded={() => navigate("accounts")} />
+      {:else if view === "categories"}
+        <Categories />
+      {:else if view === "settings"}
+        <Settings />
+      {:else if view === "emails"}
+        {#key selectedEmail}
+          <Emails initialEmail={selectedEmail} />
+        {/key}
       {/if}
     </main>
   </div>
@@ -76,39 +101,18 @@
     display: grid;
     place-items: center;
   }
-  .app {
+  .shell {
     height: 100%;
     display: flex;
-    flex-direction: column;
-  }
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-  }
-  nav {
-    display: flex;
-    gap: 8px;
-  }
-  nav .active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
   }
   main {
     flex: 1;
+    min-width: 0;
     overflow: auto;
-    padding: 18px;
-    max-width: 1000px;
-    width: 100%;
-    margin: 0 auto;
+    padding: var(--s-lg);
   }
   main.full {
-    max-width: none;
+    padding: var(--s-md);
     overflow: hidden;
   }
 </style>
-

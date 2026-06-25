@@ -1,6 +1,8 @@
 <script lang="ts">
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
+  import { t } from "../lib/i18n.svelte";
+  import logo from "../assets/logo-black.svg";
 
   let { initialized, onUnlocked }: { initialized: boolean; onUnlocked: () => void } =
     $props();
@@ -12,11 +14,11 @@
   async function submit() {
     if (busy) return;
     if (password.length < 8) {
-      showToast("主密码至少 8 位", "error");
+      showToast(t("unlock.minLen"), "error");
       return;
     }
     if (!initialized && password !== confirm) {
-      showToast("两次输入不一致", "error");
+      showToast(t("unlock.mismatch"), "error");
       return;
     }
     busy = true;
@@ -39,31 +41,32 @@
 
 <div class="wrap">
   <div class="card box">
-    <h1>🔐 Microsoft Email Manager Desktop</h1>
+    <div class="brand">
+      <img src={logo} alt="logo" class="logo" />
+      <strong>{t("app.name")}</strong>
+    </div>
     <p class="muted">
-      {initialized ? "请输入主密码解锁本地数据库" : "首次使用，请设置一个主密码"}
+      {initialized ? t("unlock.subtitleUnlock") : t("unlock.subtitleSetup")}
     </p>
-    <p class="muted small">
-      数据全部加密保存在本机，主密码不会上传也无法找回，请牢记。
-    </p>
+    <p class="muted small">{t("unlock.hint")}</p>
 
     <input
       type="password"
-      placeholder="主密码（至少 8 位）"
+      placeholder={t("unlock.password")}
       bind:value={password}
       onkeydown={(e) => e.key === "Enter" && submit()}
     />
     {#if !initialized}
       <input
         type="password"
-        placeholder="再次输入主密码"
+        placeholder={t("unlock.confirm")}
         bind:value={confirm}
         onkeydown={(e) => e.key === "Enter" && submit()}
       />
     {/if}
 
     <button class="primary" onclick={submit} disabled={busy}>
-      {busy ? "处理中…" : initialized ? "解锁" : "设置并进入"}
+      {busy ? t("unlock.processing") : initialized ? t("unlock.unlock") : t("unlock.setup")}
     </button>
   </div>
 </div>
@@ -73,16 +76,28 @@
     height: 100%;
     display: grid;
     place-items: center;
+    background:
+      radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--link) 8%, transparent), transparent),
+      var(--canvas-soft);
   }
   .box {
     width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--s-sm);
+    box-shadow: var(--shadow-4);
   }
-  h1 {
-    margin: 0;
-    font-size: 20px;
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--s-xs);
+  }
+  .logo {
+    width: 32px;
+    height: 32px;
+  }
+  .brand strong {
+    font-size: 17px;
   }
   .small {
     font-size: 12px;

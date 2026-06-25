@@ -1,11 +1,12 @@
 //! Tauri 命令：前端通过 invoke 调用。
 //! 约定：加密/解密等 CPU 操作用同步命令；网络操作用 async 且不跨 await 持锁。
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::accounts;
 use crate::accounts_auth;
+use crate::background;
 use crate::crypto;
 use crate::db;
 use crate::error::{AppError, AppResult};
@@ -13,8 +14,8 @@ use crate::export;
 use crate::graph;
 use crate::imap_client;
 use crate::models::{
-    normalize_auth_method, AccountCredentials, AccountInfo, ClassificationOption, EmailDetails,
-    EmailListResponse,
+    normalize_auth_method, AccountCredentials, AccountInfo, ClassificationOption, DashboardStats,
+    EmailDetails, EmailListResponse,
 };
 use crate::state::{AppState, Vault};
 
@@ -296,4 +297,68 @@ pub async fn check_account_health(
 
     state.with_vault(|v| db::set_health(&v.conn, &email, score, &summary))?;
     Ok(HealthResult { email, score, summary })
+}
+
+// ---------- 通知 / 后台刷新 / 仪表盘 / 设置 ----------
+
+/// 设置某账号是否开启新邮件系统通知（及可选轮询间隔秒）。
+#[tauri::command]
+pub fn set_account_notify(
+    state: State<'_, AppState>,
+    email: String,
+    enabled: bool,
+    interval_secs: Option<i64>,
+) -> AppResult<()> {
+    state.with_vault(|v| db::set_account_notify(&v.conn, &email, enabled, interval_secs))
+}
+
+/// 仪表盘统计数据。
+#[tauri::command]
+pub fn dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardStats> {
+    state.with_vault(|v| db::dashboard_stats(&v.conn))
+}
+
+/// 手动同步全部账号收件箱（刷新统计，不弹通知）。返回新邮件总数。
+#[tauri::command]
+pub async fn sync_mail_now(app: tauri::AppHandle) -> AppResult<usize> {
+    background::sync_all(&app).await
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AppSettings {
+    pub bg_refresh_enabled: bool,
+    pub bg_refresh_interval_secs: i64,
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> AppResult<AppSettings> {
+    state.with_vault(|v| {
+        let bg_refresh_enabled = db::get_meta(&v.conn, "bg_refresh_enabled")?
+            .map(|s| s != "0")
+            .unwrap_or(true);
+        let bg_refresh_interval_secs = db::get_meta(&v.conn, "bg_refresh_interval_secs")?
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(db::DEFAULT_POLL_SECS);
+        Ok(AppSettings {
+            bg_refresh_enabled,
+            bg_refresh_interval_secs,
+        })
+    })
+}
+
+#[tauri::command]
+pub fn set_settings(state: State<'_, AppState>, settings: AppSettings) -> AppResult<()> {
+    state.with_vault(|v| {
+        db::set_meta(
+            &v.conn,
+            "bg_refresh_enabled",
+            if settings.bg_refresh_enabled { "1" } else { "0" },
+        )?;
+        db::set_meta(
+            &v.conn,
+            "bg_refresh_interval_secs",
+            &settings.bg_refresh_interval_secs.max(30).to_string(),
+        )?;
+        Ok(())
+    })
 }

@@ -40,6 +40,30 @@ pub struct AccountInfo {
     pub health_checked_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub notify_enabled: bool,
+    pub poll_interval_secs: Option<i64>,
+    pub last_sync_at: Option<String>,
+}
+
+/// 最近邮件活动项（后台刷新写入，供仪表盘）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MailActivityItem {
+    pub email: String,
+    pub message_id: String,
+    pub subject: String,
+    pub from_email: String,
+    pub received_at: String,
+}
+
+/// 仪表盘统计
+#[derive(Debug, Clone, Serialize)]
+pub struct DashboardStats {
+    pub account_count: i64,
+    pub health_avg: i64,
+    pub healthy_count: i64,
+    pub unchecked_count: i64,
+    pub today_mail: i64,
+    pub recent: Vec<MailActivityItem>,
 }
 
 /// 分类 / 标签定义

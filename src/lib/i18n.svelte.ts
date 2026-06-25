@@ -134,6 +134,18 @@ const M = {
   "mail.nextPage": { zh: "下一页", en: "Next" },
   "mail.pageInfo": { zh: "第 {page} 页 / 共 {total} 封", en: "Page {page} / {total} total" },
   "mail.pickAccount": { zh: "请先在「添加邮箱」添加账号", en: "Add an account first" },
+
+  // 解锁 / 首次设置
+  "unlock.subtitleSetup": { zh: "首次使用，请设置一个主密码", en: "First run — set a master password" },
+  "unlock.subtitleUnlock": { zh: "请输入主密码解锁本地数据库", en: "Enter your master password to unlock" },
+  "unlock.hint": { zh: "数据全部加密保存在本机，主密码不会上传也无法找回，请牢记。", en: "All data is encrypted locally. The master password is never uploaded and cannot be recovered — keep it safe." },
+  "unlock.password": { zh: "主密码（至少 8 位）", en: "Master password (min 8)" },
+  "unlock.confirm": { zh: "再次输入主密码", en: "Confirm master password" },
+  "unlock.minLen": { zh: "主密码至少 8 位", en: "Password must be at least 8 characters" },
+  "unlock.mismatch": { zh: "两次输入不一致", en: "Passwords do not match" },
+  "unlock.unlock": { zh: "解锁", en: "Unlock" },
+  "unlock.setup": { zh: "设置并进入", en: "Set & enter" },
+  "unlock.processing": { zh: "处理中…", en: "Working…" },
 } satisfies Record<string, { zh: string; en: string }>;
 
 export type MsgKey = keyof typeof M;

@@ -9,6 +9,8 @@ import type {
   EmailListResponse,
   EmailDetails,
   HealthResult,
+  DashboardStats,
+  AppSettings,
 } from "./types";
 
 export const api = {
@@ -44,6 +46,14 @@ export const api = {
     invoke<void>("test_credentials", { creds }),
   testAccount: (email: string) => invoke<void>("test_account", { email }),
 
+  // 每账号通知 + 后台刷新
+  setAccountNotify: (
+    email: string,
+    enabled: boolean,
+    intervalSecs: number | null,
+  ) =>
+    invoke<void>("set_account_notify", { email, enabled, intervalSecs }),
+
   // 分类 / 标签
   getCatalog: () => invoke<Catalog>("get_catalog"),
   addCategory: (opt: ClassificationOption) =>
@@ -71,6 +81,13 @@ export const api = {
   // 健康检查
   checkAccountHealth: (email: string) =>
     invoke<HealthResult>("check_account_health", { email }),
+
+  // 仪表盘 / 设置
+  dashboardStats: () => invoke<DashboardStats>("dashboard_stats"),
+  syncMailNow: () => invoke<number>("sync_mail_now"),
+  getSettings: () => invoke<AppSettings>("get_settings"),
+  setSettings: (settings: AppSettings) =>
+    invoke<void>("set_settings", { settings }),
 
   // 导出
   exportAccounts: (

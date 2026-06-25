@@ -1,5 +1,6 @@
 mod accounts;
 mod accounts_auth;
+mod background;
 mod commands;
 mod crypto;
 mod db;
@@ -30,10 +31,12 @@ fn resolve_db_path(app: &tauri::App) -> PathBuf {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let db_path = resolve_db_path(app);
             log::info!("数据库路径: {}", db_path.display());
             app.manage(AppState::new(db_path));
+            background::spawn(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -57,6 +60,11 @@ pub fn run() {
             commands::get_email_details,
             commands::export_accounts,
             commands::check_account_health,
+            commands::set_account_notify,
+            commands::dashboard_stats,
+            commands::sync_mail_now,
+            commands::get_settings,
+            commands::set_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
