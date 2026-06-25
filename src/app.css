@@ -1,17 +1,138 @@
+/* ============================================================
+   Microsoft Email Manager Desktop — 设计系统（浅/深双主题）
+   依据 DESIGN.md（Vercel 风）。token 在 :root（浅色，默认）声明，
+   深色在 :root[data-theme="dark"] 覆盖。主题由 lib/theme 切换。
+   组件统一引用 token；保留旧变量别名，便于逐步迁移。
+   ============================================================ */
+
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1f232c;
-  --border: #2a2f3a;
-  --text: #e6e9ef;
-  --muted: #9aa3b2;
-  --accent: #3b82f6;
-  --accent-hover: #2f6fe0;
-  --danger: #ef4444;
-  --ok: #22c55e;
-  --warn: #f59e0b;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-    Roboto, Helvetica, Arial, sans-serif;
+  /* ---------- 与主题无关：圆角 ---------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 100px;
+  --r-full: 9999px;
+
+  /* ---------- 与主题无关：间距阶梯（4px 基） ---------- */
+  --s-xxs: 4px;
+  --s-xs: 8px;
+  --s-sm: 12px;
+  --s-md: 16px;
+  --s-lg: 24px;
+  --s-xl: 32px;
+  --s-2xl: 40px;
+  --s-3xl: 48px;
+  --s-4xl: 64px;
+
+  /* ---------- 与主题无关：字体 ---------- */
+  --font-sans: "Geist", "Inter", system-ui, -apple-system, "Segoe UI",
+    "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
+  /* ---------- 与主题无关：品牌渐变 ---------- */
+  --grad-develop: linear-gradient(90deg, #007cf0, #00dfd8);
+  --grad-preview: linear-gradient(90deg, #7928ca, #ff0080);
+  --grad-ship: linear-gradient(90deg, #ff4d4d, #f9cb28);
+  --grad-mesh: linear-gradient(110deg, #007cf0 0%, #00dfd8 30%, #7928ca 55%, #ff0080 80%, #f9cb28 100%);
+
+  /* ===== 浅色（默认） ===== */
+  --canvas: #ffffff;
+  --canvas-soft: #fafafa;
+  --canvas-soft-2: #f5f5f5;
+  --hairline: #ebebeb;
+  --hairline-strong: #a1a1a1;
+
+  --ink: #171717;
+  --body: #4d4d4d;
+  --mute: #888888;
+  --primary: #171717;
+  --on-primary: #ffffff;
+
+  --link: #0070f3;
+  --link-deep: #0761d1;
+  --link-bg-soft: #d3e5ff;
+  --success: #0070f3;
+  --success-ink: #0a7d3e;
+  --success-soft: #d6f5e3;
+  --error: #ee0000;
+  --error-soft: #f7d4d6;
+  --error-deep: #c50000;
+  --warning: #f5a623;
+  --warning-soft: #ffefcf;
+  --warning-deep: #ab570a;
+  --cyan: #50e3c2;
+  --violet: #7928ca;
+
+  --focus-ring: #17171714;
+  --logo-invert: 0; /* 浅色用黑 logo */
+
+  --shadow-1: 0 0 0 1px #0000000f inset;
+  --shadow-2: 0px 1px 1px #00000005, 0px 2px 2px #0000000a, 0 0 0 1px #0000000f inset;
+  --shadow-3: 0px 2px 2px #0000000a, 0px 8px 8px -8px #0000000a, 0 0 0 1px #0000000f inset;
+  --shadow-4: 0px 2px 2px #0000000a, 0px 8px 16px -4px #0000000a, 0 0 0 1px #0000000f inset;
+  --shadow-5: 0px 1px 1px #00000005, 0px 8px 16px -4px #0000000a, 0px 24px 32px -8px #0000000f, 0 0 0 1px #0000000f inset;
+
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+/* ===== 深色 ===== */
+:root[data-theme="dark"] {
+  --canvas: #171a21;
+  --canvas-soft: #0f1115;
+  --canvas-soft-2: #1f232c;
+  --hairline: #2a2f3a;
+  --hairline-strong: #3a4150;
+
+  --ink: #e6e9ef;
+  --body: #b3bccb;
+  --mute: #8a93a3;
+  --primary: #e6e9ef; /* 极性翻转：近白 CTA + 深字 */
+  --on-primary: #0f1115;
+
+  --link: #4a9eff;
+  --link-deep: #3b82f6;
+  --link-bg-soft: #15314f;
+  --success: #3fb950;
+  --success-ink: #7ee2a0;
+  --success-soft: #16331f;
+  --error: #f85149;
+  --error-soft: #3a1d1d;
+  --error-deep: #ff6b66;
+  --warning: #f5a623;
+  --warning-soft: #352a12;
+  --warning-deep: #f5c451;
+  --cyan: #50e3c2;
+  --violet: #a371f7;
+
+  --focus-ring: #ffffff22;
+  --logo-invert: 1; /* 深色用白 logo（对黑 logo 取反） */
+
+  --shadow-1: 0 0 0 1px #ffffff14 inset;
+  --shadow-2: 0px 1px 2px #00000040, 0 0 0 1px #ffffff12 inset;
+  --shadow-3: 0px 2px 10px #00000050, 0 0 0 1px #ffffff12 inset;
+  --shadow-4: 0px 8px 24px #00000060, 0 0 0 1px #ffffff12 inset;
+  --shadow-5: 0px 16px 40px #00000070, 0 0 0 1px #ffffff14 inset;
+
+  color-scheme: dark;
+}
+
+/* ===== 兼容别名（旧组件仍引用，迁移完成后可移除） ===== */
+:root {
+  --bg: var(--canvas-soft);
+  --panel: var(--canvas);
+  --panel-2: var(--canvas-soft-2);
+  --border: var(--hairline);
+  --text: var(--ink);
+  --muted: var(--mute);
+  --accent: var(--link);
+  --accent-hover: var(--link-deep);
+  --danger: var(--error);
+  --ok: var(--success);
+  --warn: var(--warning);
 }
 
 * {
@@ -26,102 +147,210 @@ body,
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--canvas-soft);
+  color: var(--ink);
   font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background 0.2s, color 0.2s;
 }
 
+::selection {
+  background: var(--ink);
+  color: var(--canvas);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 按钮（统一 6px in-app 尺度） ---------- */
 button {
   font: inherit;
+  font-weight: 500;
   cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--text);
-  padding: 7px 14px;
-  border-radius: 8px;
-  transition: background 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-xs);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  color: var(--ink);
+  padding: 0 var(--s-sm);
+  height: 34px;
+  border-radius: var(--r-sm);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
 }
 button:hover {
-  border-color: var(--accent);
+  background: var(--canvas-soft);
+  border-color: var(--hairline-strong);
 }
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
 }
 button.primary:hover {
-  background: var(--accent-hover);
+  background: var(--primary);
+  filter: brightness(1.15);
 }
 button.danger {
-  color: var(--danger);
+  color: var(--error);
+  border-color: var(--error-soft);
+}
+button.danger:hover {
+  background: var(--error-soft);
+  border-color: var(--error);
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+button.ghost:hover {
+  background: var(--canvas-soft-2);
+  border-color: transparent;
+}
+button.sm {
+  height: 28px;
+  padding: 0 var(--s-xs);
+  font-size: 13px;
 }
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+/* ---------- 表单 ---------- */
 input,
 select,
 textarea {
   font: inherit;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 8px 10px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  padding: 0 var(--s-sm);
+  height: 40px;
   width: 100%;
+}
+textarea {
+  height: auto;
+  padding: var(--s-sm);
+  resize: vertical;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--mute);
 }
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* ---------- 卡片 ---------- */
 .card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
+  background: var(--canvas);
+  border-radius: var(--r-lg);
+  padding: var(--s-lg);
+  box-shadow: var(--shadow-2);
 }
 
+/* ---------- 工具类 ---------- */
 .row {
   display: flex;
-  gap: 10px;
+  gap: var(--s-sm);
   align-items: center;
 }
-
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-sm);
+}
+.spacer {
+  flex: 1;
+}
 .muted {
-  color: var(--muted);
+  color: var(--mute);
 }
-
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
+.small {
   font-size: 12px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+}
+.mono {
+  font-family: var(--font-mono);
 }
 
+/* ---------- 徽章 / 药丸 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline);
+  color: var(--body);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+.pill.ok {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+.pill.warn {
+  background: var(--warning-soft);
+  color: var(--warning-deep);
+}
+.pill.bad {
+  background: var(--error-soft);
+  color: var(--error-deep);
+}
+
+/* ---------- toast ---------- */
 .toast {
   position: fixed;
-  bottom: 18px;
-  right: 18px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  z-index: 50;
+  bottom: var(--s-lg);
+  right: var(--s-lg);
+  padding: var(--s-sm) var(--s-md);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  box-shadow: var(--shadow-4);
+  z-index: 1000;
   max-width: 380px;
+  font-size: 13px;
 }
 .toast.error {
-  border-color: var(--danger);
+  box-shadow: var(--shadow-4), 0 0 0 1px var(--error) inset;
 }
 .toast.ok {
-  border-color: var(--ok);
+  box-shadow: var(--shadow-4), 0 0 0 1px var(--success) inset;
 }
 
+/* ---------- 表格 ---------- */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -129,11 +358,32 @@ table {
 th,
 td {
   text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: var(--s-xs) var(--s-sm);
+  border-bottom: 1px solid var(--hairline);
   font-size: 13px;
 }
 th {
-  color: var(--muted);
+  color: var(--mute);
   font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--canvas-soft);
+}
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #80808048;
+  border-radius: var(--r-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #80808078;
+  background-clip: padding-box;
 }

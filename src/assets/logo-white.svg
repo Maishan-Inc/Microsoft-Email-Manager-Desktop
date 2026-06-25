@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"
+     stroke="#ffffff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+  <!-- 后方两页（探出顶边，暗示层叠） -->
+  <path d="M26 13 h14 a4 4 0 0 1 4 4 v3" />
+  <path d="M20 19 h18 a4 4 0 0 1 4 4 v4" />
+  <!-- 前页：带折角的文档 -->
+  <path d="M16 27 a4 4 0 0 1 4-4 h12 l10 10 v18 a4 4 0 0 1-4 4 H20 a4 4 0 0 1-4-4 Z" />
+  <path d="M32 23 v7 a3 3 0 0 0 3 3 h7" />
+</svg>
