@@ -1,0 +1,60 @@
+[package]
+name = "mem-desktop"
+version = "0.1.0"
+description = "Microsoft Email Manager Desktop"
+authors = ["you"]
+edition = "2021"
+rust-version = "1.77"
+
+# 单文件库 + 可执行，Tauri 标准布局
+[lib]
+name = "mem_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 异步运行时 + HTTP（rustls，避免 OpenSSL 依赖，三端编译简单）
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# 本地数据库（bundled：内置 sqlite，无需系统库，三端一致）
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# 加密：Argon2id 派生 + AES-256-GCM
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+zeroize = "1"
+base64 = "0.22"
+
+# IMAP（XOAUTH2）+ 邮件解析
+# imap 2.4 的 XOAUTH2 用法稳定且有官方示例；native-tls 在 Windows=SChannel / macOS=SecureTransport
+# 均无需 OpenSSL，仅 Linux 打包需 libssl-dev（已在 README 注明）。
+imap = "2.4"
+native-tls = "0.2"
+mail-parser = "0.9"
+
+# 导出
+csv = "1"
+
+# 错误与时间
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "macros"] }
+log = "0.4"
+
+[profile.release]
+# 体积与内存优化
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
