@@ -30,7 +30,7 @@
     try {
       await api.testCredentials($state.snapshot(form));
       await api.addAccount($state.snapshot(form), null, []);
-      showToast("✓ " + form.email, "ok");
+      showToast(form.email, "ok");
       form = { email: "", refresh_token: "", client_id: "", auth_method: "imap" };
       onadded?.();
     } catch (e) {
@@ -50,7 +50,7 @@
     try {
       const res = await api.importAccounts(importText, importAuth);
       let msg = `${res.added}/${res.total}`;
-      if (res.errors.length) msg += ` · ${res.errors.length} ✗`;
+      if (res.errors.length) msg += ` (${res.errors.length})`;
       showToast(msg, res.errors.length ? "info" : "ok");
       if (res.errors.length) console.warn("import errors:", res.errors);
       importText = "";

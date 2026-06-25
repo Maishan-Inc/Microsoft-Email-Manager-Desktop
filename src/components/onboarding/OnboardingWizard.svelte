@@ -3,6 +3,7 @@
   import { showToast } from "../../lib/toast.svelte";
   import { t, i18n } from "../../lib/i18n.svelte";
   import logo from "../../assets/logo-black.svg";
+  import Icon from "../Icon.svelte";
   import type { TotpSetup } from "../../lib/types";
 
   let { onComplete }: { onComplete: () => void } = $props();
@@ -310,7 +311,7 @@
           <span class="muted small">{t("ob.authmode.standaloneDesc")}</span>
         </button>
       </div>
-      <p class="warn-text small">{t("ob.authmode.standaloneWarn")}</p>
+      <p class="warn-text small"><Icon name="alert-triangle" size={14} /> {t("ob.authmode.standaloneWarn")}</p>
     {:else if step === "mnemonicIntro"}
       <h2>{t("ob.mnem.introTitle")}</h2>
       <p class="muted small">{t("ob.mnem.introQ")}</p>
@@ -327,7 +328,7 @@
         {/each}
       </div>
       <div class="btn-row">
-        <button onclick={downloadTxt}>⬇ {t("ob.mnem.download")}</button>
+        <button onclick={downloadTxt}><Icon name="download" size={16} /> {t("ob.mnem.download")}</button>
         <button class="primary" onclick={toVerify}>{t("common.next")}</button>
       </div>
     {:else if step === "mnemonicVerify"}
@@ -348,7 +349,7 @@
       </div>
     {:else if step === "done"}
       <div class="done">
-        <div class="check">✓</div>
+        <div class="check"><Icon name="check" size={30} strokeWidth={2.5} /></div>
         <h2>{t("ob.done.title")}</h2>
         <p class="muted">{t("ob.done.desc")}</p>
         <button class="primary big" onclick={() => (step = "firstrun")}>{t("ob.done.start")}</button>

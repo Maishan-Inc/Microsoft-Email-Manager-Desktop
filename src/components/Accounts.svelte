@@ -2,6 +2,7 @@
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
+  import Icon from "./Icon.svelte";
   import type { AccountInfo } from "../lib/types";
 
   let { onopenmail }: { onopenmail: (email: string) => void } = $props();
@@ -35,9 +36,9 @@
     testingEmail = email;
     try {
       await api.testAccount(email);
-      showToast(email + " ✓", "ok");
+      showToast(email, "ok");
     } catch (e) {
-      showToast(email + " ✗ " + errMsg(e), "error");
+      showToast(email + ": " + errMsg(e), "error");
     } finally {
       testingEmail = null;
     }
@@ -79,7 +80,7 @@
     if (!confirm(`${t("common.delete")} ${email}?`)) return;
     try {
       await api.deleteAccount(email);
-      showToast(t("common.delete") + " ✓", "ok");
+      showToast(t("common.delete"), "ok");
       await refresh();
     } catch (e) {
       showToast(errMsg(e), "error");
@@ -139,7 +140,7 @@
               onclick={() => toggleNotify(a)}
               aria-label={t("acc.notify")}
             >
-              {a.notify_enabled ? "🔔" : "🔕"}
+              <Icon name={a.notify_enabled ? "bell" : "bell-off"} size={16} />
             </button>
             <button class="sm" onclick={() => test(a.email)} disabled={testingEmail === a.email}>
               {testingEmail === a.email ? t("acc.testing") : t("acc.test")}
@@ -148,7 +149,7 @@
               {checkingEmail === a.email ? t("acc.checking") : t("acc.health")}
             </button>
             <button class="sm" onclick={() => onopenmail(a.email)}>{t("acc.openMail")}</button>
-            <button class="sm danger ghost" onclick={() => del(a.email)} aria-label={t("common.delete")}>✕</button>
+            <button class="sm danger ghost" onclick={() => del(a.email)} aria-label={t("common.delete")}><Icon name="trash" size={15} /></button>
           </div>
         </div>
       {/each}

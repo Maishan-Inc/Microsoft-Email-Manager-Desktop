@@ -3,6 +3,7 @@
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
   import { listen } from "@tauri-apps/api/event";
+  import Icon from "./Icon.svelte";
   import type { DashboardStats } from "../lib/types";
 
   let { onnavigate }: { onnavigate: (v: "accounts" | "add") => void } = $props();
@@ -137,7 +138,7 @@
 
   <!-- 快捷入口 -->
   <div class="quick">
-    <button class="primary" onclick={() => onnavigate("add")}>＋ {t("dash.goAdd")}</button>
+    <button class="primary" onclick={() => onnavigate("add")}><Icon name="plus" size={16} /> {t("dash.goAdd")}</button>
     <button onclick={() => onnavigate("accounts")}>{t("dash.goAccounts")}</button>
   </div>
 </div>

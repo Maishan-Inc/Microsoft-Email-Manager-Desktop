@@ -16,8 +16,12 @@
 
 ## 功能
 
-- 🔐 主密码解锁（首次设置 → 后续解锁），加密本地库
-- 👤 账号管理：单个添加（先连接测试再入库）、批量导入、删除
+- 🧭 **左侧栏应用壳**（首页 / 邮箱账户管理 / 添加邮箱 / 分类编辑 / 系统设置 + 锁定），DESIGN.md 浅/深双主题、中英文切换
+- 🚀 **首启引导向导**：弹出动画 → 用户协议（滚动到底才可同意）→ 配置主密码 → 可选 2FA → 认证模式 → 恢复助记词（生成/下载/隐藏校验）→ 第一次使用教程
+- 🔐 主密码解锁（密钥包装模型，见「安全模型」）；可选 **TOTP 两步验证**；忘记密码可用**助记词恢复**并重设
+- 📊 **仪表盘**：邮箱数量、邮箱健康度、当日接收邮件、最近活动
+- 👤 账号管理：横条列表，点击进入查看邮件；单个添加（先连接测试再入库）、批量导入、删除
+- 🔔 **每账号通知**：可单独开启「新邮件系统通知」，开启后后台自动轮询刷新
 - 📥 批量导入兼容多格式：
   - IMAP：`邮箱----刷新令牌----客户端ID`（兼容旧 `邮箱----占位密码----刷新令牌----客户端ID`）
   - Graph：`邮箱----密码----client_id----令牌`
@@ -25,21 +29,30 @@
 - 📨 收件箱 / 垃圾箱 / 全部，邮件列表 + 详情（纯文本/HTML 安全沙箱渲染）
 - 🩺 账号健康检查（OAuth 刷新 + 协议探测）
 - 📤 导出 JSON / CSV（可选含凭据 + 加密）
-- 🏷️ 分类（category）/ 标签（tag）数据模型与后端接口
+- 🏷️ 分类（category）/ 标签（tag）编辑
 
 ## 架构
 
 ```
 src/                      前端（Svelte 5 + TS + Vite）
+├─ App.svelte             应用壳：侧栏 + 视图路由 + 引导门控
 ├─ components/
-│  ├─ Unlock.svelte       主密码解锁 / 首次设置
-│  ├─ Accounts.svelte     账号管理 + 导出 + 健康检查
-│  └─ Emails.svelte       邮件列表 + 详情
-├─ lib/{api,types,toast}  invoke 封装 / 类型 / 提示
+│  ├─ Sidebar.svelte      左侧导航 + 锁定
+│  ├─ Dashboard.svelte    控制面板（邮箱数/健康度/当日邮件/最近）
+│  ├─ Accounts.svelte     账号横条 + 通知开关 + 点击进邮件
+│  ├─ AddEmail.svelte     单个添加 / 批量导入
+│  ├─ Categories.svelte   分类 / 标签编辑
+│  ├─ Settings.svelte     语言 / 主题 / 后台刷新 / 导出 / 关于
+│  ├─ Emails.svelte       邮件列表 + 详情
+│  ├─ Unlock.svelte       解锁 / 2FA / 助记词恢复
+│  └─ onboarding/OnboardingWizard.svelte  首启引导向导
+├─ lib/{api,types,toast,i18n,theme}  invoke 封装 / 类型 / 提示 / 中英文 / 主题
 src-tauri/src/            后端（Rust）
-├─ crypto.rs              Argon2id 派生 + AES-256-GCM
-├─ db.rs                  rusqlite（bundled）模型与迁移
-├─ state.rs              解锁态 Vault（连接 + 密钥，锁定时 zeroize 清零）
+├─ crypto.rs              Argon2id 派生 + AES-256-GCM + DEK 密钥包装
+├─ security.rs            TOTP(RFC6238) / Base32 / 二维码 / BIP39 助记词
+├─ db.rs                  rusqlite（bundled）模型与迁移（含 mail_activity）
+├─ state.rs              解锁态 Vault + pending(待 2FA)，锁定时 zeroize 清零
+├─ background.rs          后台轮询新邮件 + 系统通知
 ├─ accounts_auth.rs       Microsoft OAuth2 token 刷新
 ├─ accounts.rs            批量导入解析 / 连接测试
 ├─ imap_client.rs         IMAP XOAUTH2 取邮件（spawn_blocking）
@@ -50,11 +63,15 @@ src-tauri/src/            后端（Rust）
 
 ## 安全模型
 
-- 主密码经 Argon2id（64MiB / 3 轮）派生 32 字节密钥；仅随机 `salt` 与一个加密「校验串」落盘。
-- 敏感字段独立加密，格式 `base64(nonce(12) || ciphertext+tag)`。
-- 解锁期间密钥常驻内存，锁定 / 退出时 `zeroize` 清零。
-- 加密导出文件以 `MEMENC1` 开头，可用同一主密码在本应用内解密恢复。
-- 主密码无法找回；忘记即无法解密本地数据（这是本地加密的代价，也是安全所在）。
+- **密钥包装（key-wrapping）**：随机生成 32 字节数据密钥（DEK），真正用于加密账号字段（AES-256-GCM，`base64(nonce(12) || ct+tag)`）。
+- DEK 被多把 KEK 各包装一份落盘：
+  - 主密码 → Argon2id（64MiB / 3 轮）→ `KEK_pw` → `dek_wrapped_pw`
+  - 可选恢复助记词（BIP39）→ Argon2id → `KEK_mn` → `dek_wrapped_mn`
+  - 解包用 GCM 认证标签校验，失败即密码 / 助记词错误。
+- **两步验证（可选 TOTP）**：密钥用 DEK 加密存储；启用后解锁需「主密码 → 解出 DEK → 校验 6 位动态码」才放行。
+- 解锁期间 DEK 常驻内存，锁定 / 退出时 `zeroize` 清零。
+- **恢复**：忘记主密码时用助记词解出 DEK 并重设密码；未配置助记词则无法找回（本地加密的代价，也是安全所在）。
+- 加密导出文件以 `MEMENC1` 开头，可在本应用内解密恢复。
 
 ## 开发
 

@@ -191,7 +191,7 @@ const M = {
   "ob.authmode.pw2faDesc": { zh: "解锁需主密码与动态码，安全性最高。", en: "Requires master password and a code. Most secure." },
   "ob.authmode.standalone": { zh: "独立 2FA", en: "Standalone 2FA" },
   "ob.authmode.standaloneDesc": { zh: "仅用动态码解锁，无需主密码。", en: "Unlock with the code only, no password." },
-  "ob.authmode.standaloneWarn": { zh: "⚠️ 独立 2FA 下数据由设备密钥兜底加密，安全性弱于「密码 + 2FA」。", en: "⚠️ Standalone 2FA encrypts data with a device key — weaker at rest than Password + 2FA." },
+  "ob.authmode.standaloneWarn": { zh: "独立 2FA 下数据由设备密钥兜底加密，安全性弱于「密码 + 2FA」。", en: "Standalone 2FA encrypts data with a device key — weaker at rest than Password + 2FA." },
 
   "ob.mnem.introTitle": { zh: "恢复助记词", en: "Recovery phrase" },
   "ob.mnem.introQ": { zh: "你能记住主密码吗？若不记得，可生成一组助记词用于恢复。", en: "Can you remember the password? If not, generate a recovery phrase." },

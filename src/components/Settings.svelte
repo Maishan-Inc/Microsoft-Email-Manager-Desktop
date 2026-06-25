@@ -5,6 +5,7 @@
   import { showToast } from "../lib/toast.svelte";
   import { t, i18n, setLang, type Lang } from "../lib/i18n.svelte";
   import { theme, setTheme, type Theme } from "../lib/theme.svelte";
+  import Icon from "./Icon.svelte";
   import type { AppSettings } from "../lib/types";
 
   // 后台刷新设置
@@ -47,7 +48,7 @@
       if (!path) return;
       exporting = true;
       await api.exportAccounts(path, exportFormat, exportCreds, exportCreds && exportEncrypt);
-      showToast("✓ " + path, "ok");
+      showToast(path, "ok");
     } catch (e) {
       showToast(errMsg(e), "error");
     } finally {
@@ -135,7 +136,7 @@
       </button>
     </div>
     {#if exportCreds && !exportEncrypt}
-      <p class="warn-text small">⚠️ 将导出明文 refresh_token，请妥善保管。</p>
+      <p class="warn-text small"><Icon name="alert-triangle" size={14} /> 将导出明文 refresh_token，请妥善保管。</p>
     {/if}
   </div>
 

@@ -2,6 +2,7 @@
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
+  import Icon from "./Icon.svelte";
   import type { Catalog, ClassificationOption } from "../lib/types";
 
   let catalog = $state<Catalog>({ categories: [], tags: [] });
@@ -82,7 +83,7 @@
               <span class="badge mono">{it.key}</span>
               <span class="names">{it.name_zh} · {it.name_en}</span>
               {#if it.remark}<span class="muted small rm">{it.remark}</span>{/if}
-              <button class="ghost sm danger" onclick={() => del("category", it.key)} aria-label={t("common.delete")}>✕</button>
+              <button class="ghost sm danger" onclick={() => del("category", it.key)} aria-label={t("common.delete")}><Icon name="trash" size={15} /></button>
             </li>
           {/each}
         </ul>
@@ -96,7 +97,7 @@
           <input placeholder={t("cat.nameEn")} bind:value={newCat.name_en} />
           <input placeholder={t("cat.remark")} bind:value={newCat.remark} />
         </div>
-        <button class="primary" onclick={() => add("category")}>＋ {t("common.add")}</button>
+        <button class="primary" onclick={() => add("category")}><Icon name="plus" size={16} /> {t("common.add")}</button>
       </div>
     </div>
 
@@ -114,7 +115,7 @@
               <span class="badge mono">{it.key}</span>
               <span class="names">{it.name_zh} · {it.name_en}</span>
               {#if it.remark}<span class="muted small rm">{it.remark}</span>{/if}
-              <button class="ghost sm danger" onclick={() => del("tag", it.key)} aria-label={t("common.delete")}>✕</button>
+              <button class="ghost sm danger" onclick={() => del("tag", it.key)} aria-label={t("common.delete")}><Icon name="trash" size={15} /></button>
             </li>
           {/each}
         </ul>
@@ -128,7 +129,7 @@
           <input placeholder={t("cat.nameEn")} bind:value={newTag.name_en} />
           <input placeholder={t("cat.remark")} bind:value={newTag.remark} />
         </div>
-        <button class="primary" onclick={() => add("tag")}>＋ {t("common.add")}</button>
+        <button class="primary" onclick={() => add("tag")}><Icon name="plus" size={16} /> {t("common.add")}</button>
       </div>
     </div>
   </div>
