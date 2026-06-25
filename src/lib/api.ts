@@ -11,6 +11,11 @@ import type {
   HealthResult,
   DashboardStats,
   AppSettings,
+  OnboardingStatus,
+  TotpSetup,
+  MnemonicGen,
+  SecuritySetup,
+  UnlockResult,
 } from "./types";
 
 export const api = {
@@ -18,7 +23,12 @@ export const api = {
   getStatus: () => invoke<AppStatus>("get_status"),
   setupMasterPassword: (password: string) =>
     invoke<void>("setup_master_password", { password }),
-  unlock: (password: string) => invoke<void>("unlock", { password }),
+  unlock: (password: string) => invoke<UnlockResult>("unlock", { password }),
+  verify2fa: (code: string) => invoke<void>("verify_2fa", { code }),
+  recoverWithMnemonic: (words: string) =>
+    invoke<void>("recover_with_mnemonic", { words }),
+  resetPassword: (newPassword: string) =>
+    invoke<void>("reset_password", { newPassword }),
   lock: () => invoke<void>("lock"),
 
   // 账号
@@ -88,6 +98,18 @@ export const api = {
   getSettings: () => invoke<AppSettings>("get_settings"),
   setSettings: (settings: AppSettings) =>
     invoke<void>("set_settings", { settings }),
+
+  // 首启引导 / 安全配置
+  onboardingStatus: () => invoke<OnboardingStatus>("onboarding_status"),
+  acceptAgreement: () => invoke<void>("accept_agreement"),
+  generateTotp: () => invoke<TotpSetup>("generate_totp"),
+  verifyTotpCode: (secret: string, code: string) =>
+    invoke<boolean>("verify_totp_code", { secret, code }),
+  generateMnemonic: () => invoke<MnemonicGen>("generate_mnemonic"),
+  completeSetup: (setup: SecuritySetup) =>
+    invoke<void>("complete_setup", { setup }),
+  completeOnboarding: () => invoke<void>("complete_onboarding"),
+  setTutorialSeen: () => invoke<void>("set_tutorial_seen"),
 
   // 导出
   exportAccounts: (

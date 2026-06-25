@@ -146,6 +146,73 @@ const M = {
   "unlock.unlock": { zh: "解锁", en: "Unlock" },
   "unlock.setup": { zh: "设置并进入", en: "Set & enter" },
   "unlock.processing": { zh: "处理中…", en: "Working…" },
+  "unlock.need2fa": { zh: "请输入两步验证码", en: "Enter your 2FA code" },
+  "unlock.verify2fa": { zh: "验证", en: "Verify" },
+
+  // ===== 首启引导向导 =====
+  "ob.splash.tagline": { zh: "本地加密 · 多账号 · 隐私优先", en: "Local-encrypted · Multi-account · Privacy-first" },
+  "ob.splash.start": { zh: "开始", en: "Get started" },
+
+  "ob.agreement.title": { zh: "用户协议", en: "User Agreement" },
+  "ob.agreement.scrollHint": { zh: "请滚动阅读至底部以继续", en: "Scroll to the bottom to continue" },
+  "ob.agreement.agree": { zh: "我已阅读并同意", en: "I have read and agree" },
+
+  "ob.password.title": { zh: "配置主密码", en: "Set master password" },
+  "ob.password.desc": { zh: "主密码用于加密本地数据，不会上传，请牢记。", en: "Used to encrypt local data. Never uploaded — keep it safe." },
+  "ob.password.pwd": { zh: "主密码（至少 8 位）", en: "Master password (min 8)" },
+  "ob.password.confirm": { zh: "再次输入", en: "Confirm" },
+  "ob.password.weak": { zh: "强度：弱", en: "Strength: weak" },
+  "ob.password.medium": { zh: "强度：中", en: "Strength: medium" },
+  "ob.password.strong": { zh: "强度：强", en: "Strength: strong" },
+
+  "ob.2fa.title": { zh: "是否开启两步验证（2FA）", en: "Enable two-factor (2FA)?" },
+  "ob.2fa.desc": { zh: "开启后，解锁需额外输入动态验证码，更安全。", en: "Adds a one-time code at unlock for extra security." },
+  "ob.2fa.skip": { zh: "跳过", en: "Skip" },
+  "ob.2fa.enable": { zh: "开启 2FA", en: "Enable 2FA" },
+
+  "ob.totp.title": { zh: "扫码绑定验证器", en: "Scan with your authenticator" },
+  "ob.totp.scanHint": { zh: "用 Authenticator 等应用扫描二维码，或手动输入密钥：", en: "Scan with an authenticator app, or enter the key manually:" },
+  "ob.totp.copy": { zh: "复制密钥", en: "Copy key" },
+  "ob.totp.tokenPlaceholder": { zh: "输入 6 位验证码", en: "Enter 6-digit code" },
+  "ob.totp.verify": { zh: "验证并完成", en: "Verify & finish" },
+  "ob.totp.invalid": { zh: "验证码不正确", en: "Invalid code" },
+
+  "ob.authmode.title": { zh: "如何完成认证", en: "How to authenticate" },
+  "ob.authmode.pw2fa": { zh: "使用 密码 + 2FA", en: "Password + 2FA" },
+  "ob.authmode.pw2faDesc": { zh: "解锁需主密码与动态码，安全性最高。", en: "Requires master password and a code. Most secure." },
+  "ob.authmode.standalone": { zh: "独立 2FA", en: "Standalone 2FA" },
+  "ob.authmode.standaloneDesc": { zh: "仅用动态码解锁，无需主密码。", en: "Unlock with the code only, no password." },
+  "ob.authmode.standaloneWarn": { zh: "⚠️ 独立 2FA 下数据由设备密钥兜底加密，安全性弱于「密码 + 2FA」。", en: "⚠️ Standalone 2FA encrypts data with a device key — weaker at rest than Password + 2FA." },
+
+  "ob.mnem.introTitle": { zh: "恢复助记词", en: "Recovery phrase" },
+  "ob.mnem.introQ": { zh: "你能记住主密码吗？若不记得，可生成一组助记词用于恢复。", en: "Can you remember the password? If not, generate a recovery phrase." },
+  "ob.mnem.remember": { zh: "我能记住，跳过", en: "I'll remember — skip" },
+  "ob.mnem.generate": { zh: "生成助记词", en: "Generate phrase" },
+  "ob.mnem.showTitle": { zh: "请抄写并妥善保存", en: "Write these down and keep them safe" },
+  "ob.mnem.showDesc": { zh: "任何人拿到这组助记词都能恢复你的数据，切勿截图上传或泄露。", en: "Anyone with this phrase can recover your data. Never screenshot, upload, or share it." },
+  "ob.mnem.download": { zh: "下载为 txt", en: "Download as txt" },
+  "ob.mnem.verifyTitle": { zh: "校验助记词", en: "Verify your phrase" },
+  "ob.mnem.verifyDesc": { zh: "请填回下列缺失的词，确认你已正确保存。", en: "Fill in the missing words to confirm you saved them." },
+  "ob.mnem.verifyWrong": { zh: "与生成的助记词不一致，请检查。", en: "Doesn't match the generated phrase." },
+  "ob.mnem.word": { zh: "第 {n} 个", en: "Word {n}" },
+
+  "ob.done.title": { zh: "你已完成恢复助记词配置", en: "Recovery setup complete" },
+  "ob.done.desc": { zh: "一切就绪，开始使用吧。", en: "All set — let's get started." },
+  "ob.done.start": { zh: "开始使用 Microsoft Email Manager", en: "Start using Microsoft Email Manager" },
+
+  "ob.firstrun.title": { zh: "你之前用过本软件吗？", en: "Have you used this app before?" },
+  "ob.firstrun.first": { zh: "我是第一次使用", en: "First time here" },
+  "ob.firstrun.firstDesc": { zh: "带你快速了解界面", en: "A quick tour of the interface" },
+  "ob.firstrun.returning": { zh: "我之前使用过", en: "I've used it before" },
+  "ob.firstrun.returningDesc": { zh: "直接进入应用", en: "Go straight to the app" },
+
+  "ob.tutorial.skip": { zh: "跳过教程", en: "Skip tour" },
+  "ob.tutorial.next": { zh: "下一步", en: "Next" },
+  "ob.tutorial.done": { zh: "完成", en: "Done" },
+  "ob.tutorial.t1": { zh: "左侧是导航：首页、账户、添加邮箱、分类、设置。", en: "The sidebar: Home, Accounts, Add, Categories, Settings." },
+  "ob.tutorial.t2": { zh: "首页是控制面板，看邮箱数量、健康度与当日邮件。", en: "Home is your dashboard: mailbox count, health, mail today." },
+  "ob.tutorial.t3": { zh: "在「添加邮箱」导入账号，账户列表点一行即可看邮件。", en: "Add accounts under “Add Email”; click an account row to read mail." },
+  "ob.tutorial.t4": { zh: "每个账户可单独开启新邮件通知，后台自动刷新。", en: "Enable per-account new-mail notifications with background refresh." },
 } satisfies Record<string, { zh: string; en: string }>;
 
 export type MsgKey = keyof typeof M;

@@ -9,6 +9,7 @@ mod export;
 mod graph;
 mod imap_client;
 mod models;
+mod security;
 mod state;
 
 use std::path::PathBuf;
@@ -65,6 +66,17 @@ pub fn run() {
             commands::sync_mail_now,
             commands::get_settings,
             commands::set_settings,
+            commands::onboarding_status,
+            commands::accept_agreement,
+            commands::complete_onboarding,
+            commands::set_tutorial_seen,
+            commands::generate_totp,
+            commands::verify_totp_code,
+            commands::generate_mnemonic,
+            commands::complete_setup,
+            commands::verify_2fa,
+            commands::recover_with_mnemonic,
+            commands::reset_password,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

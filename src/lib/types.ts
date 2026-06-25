@@ -106,3 +106,38 @@ export interface AppSettings {
   bg_refresh_enabled: boolean;
   bg_refresh_interval_secs: number;
 }
+
+/** 首启引导状态（驱动向导显隐） */
+export interface OnboardingStatus {
+  agreement_accepted: boolean;
+  initialized: boolean;
+  onboarding_completed: boolean;
+  tutorial_seen: boolean;
+  auth_mode: string; // "" | "password_only" | "password_2fa" | "standalone_2fa"
+}
+
+/** TOTP 候选密钥（设置中展示，未落库） */
+export interface TotpSetup {
+  secret: string;
+  otpauth_uri: string;
+  qr_svg: string;
+}
+
+/** 候选助记词（展示，未落库） */
+export interface MnemonicGen {
+  words: string[];
+}
+
+/** 一次性完成安全配置的入参 */
+export interface SecuritySetup {
+  password: string;
+  totp_secret: string | null;
+  auth_mode: string;
+  mnemonic: string | null;
+}
+
+/** 解锁结果：是否还需 2FA */
+export interface UnlockResult {
+  needs_2fa: boolean;
+}
+

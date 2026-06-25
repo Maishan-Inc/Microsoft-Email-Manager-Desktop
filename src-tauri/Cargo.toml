@@ -37,6 +37,12 @@ rand = "0.8"
 zeroize = "1"
 base64 = "0.22"
 
+# 2FA：TOTP 自实现（HMAC-SHA1，RFC 6238）/ 二维码 / BIP39 助记词
+hmac = "0.12"
+sha1 = "0.10"
+qrcode = "0.14"
+bip39 = "2"
+
 # IMAP（XOAUTH2）+ 邮件解析
 # imap 2.4 的 XOAUTH2 用法稳定且有官方示例；native-tls 在 Windows=SChannel / macOS=SecureTransport
 # 均无需 OpenSSL，仅 Linux 打包需 libssl-dev（已在 README 注明）。

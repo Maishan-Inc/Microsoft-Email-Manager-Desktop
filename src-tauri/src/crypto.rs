@@ -65,6 +65,16 @@ impl DerivedKey {
         let bytes = self.decrypt(encoded)?;
         String::from_utf8(bytes).map_err(|e| AppError::Crypto(e.to_string()))
     }
+
+    /// 从原始 32 字节构造（用于解包出的 DEK）
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        DerivedKey(bytes)
+    }
+
+    /// 暴露原始字节（仅用于密钥包装）
+    pub fn expose(&self) -> &[u8; 32] {
+        &self.0
+    }
 }
 
 impl Drop for DerivedKey {
@@ -93,6 +103,29 @@ pub fn new_salt() -> [u8; 16] {
     let mut salt = [0u8; 16];
     rand::thread_rng().fill_bytes(&mut salt);
     salt
+}
+
+/// 随机生成数据加密密钥（DEK）
+pub fn random_dek() -> DerivedKey {
+    let mut b = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut b);
+    DerivedKey(b)
+}
+
+/// 用 KEK 包装 DEK -> base64(nonce||ct)
+pub fn wrap_dek(kek: &DerivedKey, dek: &DerivedKey) -> AppResult<String> {
+    kek.encrypt(dek.expose())
+}
+
+/// 用 KEK 解包 DEK（GCM 认证失败即视为密钥/密码错误）
+pub fn unwrap_dek(kek: &DerivedKey, blob: &str) -> AppResult<DerivedKey> {
+    let bytes = kek.decrypt(blob)?;
+    if bytes.len() != 32 {
+        return Err(AppError::Crypto("DEK 长度异常".into()));
+    }
+    let mut b = [0u8; 32];
+    b.copy_from_slice(&bytes);
+    Ok(DerivedKey::from_bytes(b))
 }
 
 /// 生成校验密文（首次设置主密码时调用）

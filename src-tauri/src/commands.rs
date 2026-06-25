@@ -13,6 +13,7 @@ use crate::error::{AppError, AppResult};
 use crate::export;
 use crate::graph;
 use crate::imap_client;
+use crate::security;
 use crate::models::{
     normalize_auth_method, AccountCredentials, AccountInfo, ClassificationOption, DashboardStats,
     EmailDetails, EmailListResponse,
@@ -49,6 +50,23 @@ pub fn get_status(state: State<'_, AppState>) -> AppResult<AppStatus> {
     })
 }
 
+/// 内部：创建 DEK 并用密码包装，写入 salt_pw / dek_wrapped_pw，返回 DEK。
+fn init_dek_with_password(conn: &rusqlite::Connection, password: &str) -> AppResult<crypto::DerivedKey> {
+    let dek = crypto::random_dek();
+    let salt = crypto::new_salt();
+    let kek = crypto::derive_key(password, &salt)?;
+    db::set_meta(conn, "salt_pw", &crypto::b64_encode(&salt))?;
+    db::set_meta(conn, "dek_wrapped_pw", &crypto::wrap_dek(&kek, &dek)?)?;
+    Ok(dek)
+}
+
+fn now_rfc3339() -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn setup_master_password(state: State<'_, AppState>, password: String) -> AppResult<()> {
     if password.len() < 8 {
@@ -58,23 +76,36 @@ pub fn setup_master_password(state: State<'_, AppState>, password: String) -> Ap
     if db::is_initialized(&conn)? {
         return Err(AppError::AlreadyInitialized);
     }
-    let salt = crypto::new_salt();
-    let key = crypto::derive_key(&password, &salt)?;
-    db::init_master(&conn, &key, &salt)?;
-    state.set_vault(Vault { conn, key });
+    let dek = init_dek_with_password(&conn, &password)?;
+    db::set_meta(&conn, "auth_mode", "password_only")?;
+    state.set_vault(Vault { conn, key: dek });
     Ok(())
 }
 
+#[derive(Serialize)]
+pub struct UnlockResult {
+    pub needs_2fa: bool,
+}
+
 #[tauri::command]
-pub fn unlock(state: State<'_, AppState>, password: String) -> AppResult<()> {
+pub fn unlock(state: State<'_, AppState>, password: String) -> AppResult<UnlockResult> {
     let conn = db::open(&state.db_path)?;
-    let salt_b64 = db::get_meta(&conn, "master_salt")?.ok_or(AppError::BadPassword)?;
+    let salt_b64 = db::get_meta(&conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
     let salt = crypto::b64_decode(&salt_b64)?;
-    let key = crypto::derive_key(&password, &salt)?;
-    let verifier = db::get_meta(&conn, "verifier")?.ok_or(AppError::BadPassword)?;
-    crypto::verify(&key, &verifier)?;
-    state.set_vault(Vault { conn, key });
-    Ok(())
+    let kek = crypto::derive_key(&password, &salt)?;
+    let wrapped = db::get_meta(&conn, "dek_wrapped_pw")?.ok_or(AppError::BadPassword)?;
+    // GCM 认证失败即密码错误
+    let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::BadPassword)?;
+
+    let auth_mode = db::get_meta(&conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
+    let has_totp = db::get_meta(&conn, "totp_secret_enc")?.is_some();
+    if auth_mode != "password_only" && has_totp {
+        state.set_pending(Vault { conn, key: dek });
+        Ok(UnlockResult { needs_2fa: true })
+    } else {
+        state.set_vault(Vault { conn, key: dek });
+        Ok(UnlockResult { needs_2fa: false })
+    }
 }
 
 #[tauri::command]
@@ -359,6 +390,197 @@ pub fn set_settings(state: State<'_, AppState>, settings: AppSettings) -> AppRes
             "bg_refresh_interval_secs",
             &settings.bg_refresh_interval_secs.max(30).to_string(),
         )?;
+        Ok(())
+    })
+}
+
+// ---------- 首启引导 / 安全配置 ----------
+
+#[derive(Serialize)]
+pub struct OnboardingStatus {
+    pub agreement_accepted: bool,
+    pub initialized: bool,
+    pub onboarding_completed: bool,
+    pub tutorial_seen: bool,
+    pub auth_mode: String,
+}
+
+#[tauri::command]
+pub fn onboarding_status(state: State<'_, AppState>) -> AppResult<OnboardingStatus> {
+    let conn = db::open(&state.db_path)?;
+    Ok(OnboardingStatus {
+        agreement_accepted: db::get_meta(&conn, "agreement_accepted_at")?.is_some(),
+        initialized: db::is_initialized(&conn)?,
+        onboarding_completed: db::get_meta(&conn, "onboarding_completed")?.as_deref() == Some("1"),
+        tutorial_seen: db::get_meta(&conn, "tutorial_seen")?.as_deref() == Some("1"),
+        auth_mode: db::get_meta(&conn, "auth_mode")?.unwrap_or_default(),
+    })
+}
+
+#[tauri::command]
+pub fn accept_agreement(state: State<'_, AppState>) -> AppResult<()> {
+    let conn = db::open(&state.db_path)?;
+    db::set_meta(&conn, "agreement_accepted_at", &now_rfc3339())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn complete_onboarding(state: State<'_, AppState>) -> AppResult<()> {
+    let conn = db::open(&state.db_path)?;
+    db::set_meta(&conn, "onboarding_completed", "1")?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_tutorial_seen(state: State<'_, AppState>) -> AppResult<()> {
+    let conn = db::open(&state.db_path)?;
+    db::set_meta(&conn, "tutorial_seen", "1")?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct TotpSetup {
+    pub secret: String,
+    pub otpauth_uri: String,
+    pub qr_svg: String,
+}
+
+/// 生成候选 TOTP 密钥与二维码（未落库，前端持有到 complete_setup）。
+#[tauri::command]
+pub fn generate_totp() -> AppResult<TotpSetup> {
+    let secret = security::totp_secret_new();
+    let otpauth_uri = security::totp_uri(&secret, "Microsoft Email Manager", "vault");
+    let qr_svg = security::qr_svg(&otpauth_uri)?;
+    Ok(TotpSetup {
+        secret,
+        otpauth_uri,
+        qr_svg,
+    })
+}
+
+/// 校验候选 TOTP 密钥的验证码（设置过程中用）。
+#[tauri::command]
+pub fn verify_totp_code(secret: String, code: String) -> AppResult<bool> {
+    Ok(security::totp_verify(&secret, &code))
+}
+
+#[derive(Serialize)]
+pub struct MnemonicGen {
+    pub words: Vec<String>,
+}
+
+#[tauri::command]
+pub fn generate_mnemonic() -> AppResult<MnemonicGen> {
+    Ok(MnemonicGen {
+        words: security::mnemonic_new()?,
+    })
+}
+
+#[derive(Deserialize)]
+pub struct SecuritySetup {
+    pub password: String,
+    pub totp_secret: Option<String>,
+    pub auth_mode: String,
+    pub mnemonic: Option<String>,
+}
+
+/// 一次性原子完成安全配置：建 DEK，密码（+助记词）包装，存 TOTP 与 auth_mode，解锁。
+#[tauri::command]
+pub fn complete_setup(state: State<'_, AppState>, setup: SecuritySetup) -> AppResult<()> {
+    if setup.password.len() < 8 {
+        return Err(AppError::Other("主密码至少 8 位".into()));
+    }
+    let conn = db::open(&state.db_path)?;
+    if db::is_initialized(&conn)? {
+        return Err(AppError::AlreadyInitialized);
+    }
+    let dek = init_dek_with_password(&conn, &setup.password)?;
+
+    // 助记词恢复包装
+    if let Some(phrase) = setup.mnemonic.as_ref().filter(|p| !p.trim().is_empty()) {
+        let salt = crypto::new_salt();
+        let kek = crypto::derive_key(phrase.trim(), &salt)?;
+        db::set_meta(&conn, "salt_mn", &crypto::b64_encode(&salt))?;
+        db::set_meta(&conn, "dek_wrapped_mn", &crypto::wrap_dek(&kek, &dek)?)?;
+    }
+
+    // TOTP 密钥（DEK 加密存储）
+    let has_totp = setup
+        .totp_secret
+        .as_ref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    if let Some(secret) = setup.totp_secret.as_ref().filter(|s| !s.trim().is_empty()) {
+        db::set_meta(&conn, "totp_secret_enc", &dek.encrypt_str(secret)?)?;
+    }
+
+    let auth_mode = if has_totp {
+        if setup.auth_mode.is_empty() {
+            "password_2fa".to_string()
+        } else {
+            setup.auth_mode.clone()
+        }
+    } else {
+        "password_only".to_string()
+    };
+    db::set_meta(&conn, "auth_mode", &auth_mode)?;
+
+    state.set_vault(Vault { conn, key: dek });
+    Ok(())
+}
+
+/// 解锁第二步：校验 2FA，通过后将 pending 提升为已解锁。
+#[tauri::command]
+pub fn verify_2fa(state: State<'_, AppState>, code: String) -> AppResult<()> {
+    let vault = state.take_pending().ok_or(AppError::Locked)?;
+    let res = (|| -> AppResult<bool> {
+        let enc = db::get_meta(&vault.conn, "totp_secret_enc")?
+            .ok_or_else(|| AppError::Other("未配置 2FA".into()))?;
+        let secret = vault.key.decrypt_str(&enc)?;
+        Ok(security::totp_verify(&secret, &code))
+    })();
+    match res {
+        Ok(true) => {
+            state.set_vault(vault);
+            Ok(())
+        }
+        Ok(false) => {
+            state.set_pending(vault);
+            Err(AppError::Other("验证码不正确".into()))
+        }
+        Err(e) => {
+            state.set_pending(vault);
+            Err(e)
+        }
+    }
+}
+
+/// 用恢复助记词解出 DEK 并解锁（之后建议立即 reset_password）。
+#[tauri::command]
+pub fn recover_with_mnemonic(state: State<'_, AppState>, words: String) -> AppResult<()> {
+    let conn = db::open(&state.db_path)?;
+    let salt_b64 = db::get_meta(&conn, "salt_mn")?
+        .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
+    let salt = crypto::b64_decode(&salt_b64)?;
+    let kek = crypto::derive_key(words.trim(), &salt)?;
+    let wrapped = db::get_meta(&conn, "dek_wrapped_mn")?
+        .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
+    let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::Other("助记词不正确".into()))?;
+    state.set_vault(Vault { conn, key: dek });
+    Ok(())
+}
+
+/// 重设主密码（用当前 DEK 重新做密码包装）。
+#[tauri::command]
+pub fn reset_password(state: State<'_, AppState>, new_password: String) -> AppResult<()> {
+    if new_password.len() < 8 {
+        return Err(AppError::Other("主密码至少 8 位".into()));
+    }
+    state.with_vault(|v| {
+        let salt = crypto::new_salt();
+        let kek = crypto::derive_key(&new_password, &salt)?;
+        db::set_meta(&v.conn, "salt_pw", &crypto::b64_encode(&salt))?;
+        db::set_meta(&v.conn, "dek_wrapped_pw", &crypto::wrap_dek(&kek, &v.key)?)?;
         Ok(())
     })
 }

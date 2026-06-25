@@ -134,9 +134,9 @@ pub fn set_meta(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// 是否已设置主密码
+/// 是否已设置主密码（新模型：存在密码包装的 DEK）
 pub fn is_initialized(conn: &Connection) -> AppResult<bool> {
-    Ok(get_meta(conn, "master_salt")?.is_some() && get_meta(conn, "verifier")?.is_some())
+    Ok(get_meta(conn, "dek_wrapped_pw")?.is_some())
 }
 
 // ---------- accounts ----------

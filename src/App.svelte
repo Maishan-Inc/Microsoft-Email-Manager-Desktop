@@ -10,6 +10,7 @@
   import Categories from "./components/Categories.svelte";
   import Settings from "./components/Settings.svelte";
   import Emails from "./components/Emails.svelte";
+  import OnboardingWizard from "./components/onboarding/OnboardingWizard.svelte";
 
   type View =
     | "dashboard"
@@ -22,6 +23,7 @@
   let ready = $state(false);
   let initialized = $state(false);
   let unlocked = $state(false);
+  let showWizard = $state(false); // 新后端 + 全新安装时显示引导向导
   let view = $state<View>("dashboard");
   let selectedEmail = $state<string>("");
 
@@ -30,6 +32,13 @@
       const s = await api.getStatus();
       initialized = s.initialized;
       unlocked = s.unlocked;
+      // 探测新后端是否支持引导；不支持则回退原解锁流程（保持 v1.0.0 行为）
+      try {
+        await api.onboardingStatus();
+        showWizard = !initialized;
+      } catch {
+        showWizard = false;
+      }
     } catch (e) {
       showToast(errMsg(e), "error");
     } finally {
@@ -41,6 +50,13 @@
   function onUnlocked() {
     unlocked = true;
     initialized = true;
+    view = "dashboard";
+  }
+
+  function onWizardDone() {
+    unlocked = true;
+    initialized = true;
+    showWizard = false;
     view = "dashboard";
   }
 
@@ -66,6 +82,8 @@
 
 {#if !ready}
   <div class="center muted">{t("app.starting")}</div>
+{:else if showWizard && !unlocked}
+  <OnboardingWizard initialized={false} onComplete={onWizardDone} />
 {:else if !unlocked}
   <Unlock {initialized} {onUnlocked} />
 {:else}

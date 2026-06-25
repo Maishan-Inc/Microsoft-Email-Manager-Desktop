@@ -16,6 +16,8 @@ pub struct Vault {
 pub struct AppState {
     pub db_path: PathBuf,
     pub vault: Mutex<Option<Vault>>,
+    /// 已用密码/恢复路径解出 DEK，但尚未通过 2FA 校验的中间态。
+    pub pending: Mutex<Option<Vault>>,
 }
 
 impl AppState {
@@ -23,6 +25,7 @@ impl AppState {
         Self {
             db_path,
             vault: Mutex::new(None),
+            pending: Mutex::new(None),
         }
     }
 
@@ -39,9 +42,21 @@ impl AppState {
 
     pub fn lock_vault(&self) {
         *self.vault.lock().unwrap() = None;
+        *self.pending.lock().unwrap() = None;
     }
 
     pub fn set_vault(&self, vault: Vault) {
         *self.vault.lock().unwrap() = Some(vault);
+        *self.pending.lock().unwrap() = None;
+    }
+
+    /// 暂存待 2FA 校验的 vault
+    pub fn set_pending(&self, vault: Vault) {
+        *self.pending.lock().unwrap() = Some(vault);
+    }
+
+    /// 取出 pending（取走所有权）
+    pub fn take_pending(&self) -> Option<Vault> {
+        self.pending.lock().unwrap().take()
     }
 }
