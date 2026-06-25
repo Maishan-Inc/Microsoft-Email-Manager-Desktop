@@ -558,6 +558,9 @@ pub fn verify_2fa(state: State<'_, AppState>, code: String) -> AppResult<()> {
 /// 用恢复助记词解出 DEK 并解锁（之后建议立即 reset_password）。
 #[tauri::command]
 pub fn recover_with_mnemonic(state: State<'_, AppState>, words: String) -> AppResult<()> {
+    if !security::mnemonic_valid(&words) {
+        return Err(AppError::Other("助记词格式不正确".into()));
+    }
     let conn = db::open(&state.db_path)?;
     let salt_b64 = db::get_meta(&conn, "salt_mn")?
         .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;

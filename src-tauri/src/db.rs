@@ -2,7 +2,7 @@
 
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::crypto::{self, DerivedKey};
+use crate::crypto::DerivedKey;
 use crate::error::{AppError, AppResult};
 use crate::models::{AccountCredentials, AccountInfo, ClassificationOption};
 
@@ -504,16 +504,5 @@ pub fn delete_option(conn: &Connection, table: &str, key: &str) -> AppResult<()>
     }
     let sql = format!("DELETE FROM {table} WHERE key = ?1");
     conn.execute(&sql, params![key])?;
-    Ok(())
-}
-
-/// 初始化主密码：写入 salt 与校验密文
-pub fn init_master(conn: &Connection, key: &DerivedKey, salt: &[u8]) -> AppResult<()> {
-    if is_initialized(conn)? {
-        return Err(AppError::AlreadyInitialized);
-    }
-    let verifier = crypto::make_verifier(key)?;
-    set_meta(conn, "master_salt", &crypto::b64_encode(salt))?;
-    set_meta(conn, "verifier", &verifier)?;
     Ok(())
 }

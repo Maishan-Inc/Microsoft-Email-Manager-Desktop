@@ -7,7 +7,7 @@
   let { initialEmail }: { initialEmail?: string } = $props();
 
   let accounts = $state<AccountInfo[]>([]);
-  let selectedEmail = $state<string>(initialEmail ?? "");
+  let selectedEmail = $state<string>("");
   let folder = $state<"inbox" | "junk" | "all">("inbox");
   let page = $state(1);
   const pageSize = 25;
@@ -22,7 +22,7 @@
   async function init() {
     try {
       accounts = await api.listAccounts();
-      if (!selectedEmail && accounts.length) selectedEmail = accounts[0].email;
+      if (!selectedEmail) selectedEmail = initialEmail ?? (accounts.length ? accounts[0].email : "");
       if (selectedEmail) await loadList();
     } catch (e) {
       showToast(errMsg(e), "error");

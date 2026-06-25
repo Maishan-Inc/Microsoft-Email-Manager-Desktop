@@ -83,7 +83,7 @@
 {#if !ready}
   <div class="center muted">{t("app.starting")}</div>
 {:else if showWizard && !unlocked}
-  <OnboardingWizard initialized={false} onComplete={onWizardDone} />
+  <OnboardingWizard onComplete={onWizardDone} />
 {:else if !unlocked}
   <Unlock {initialized} {onUnlocked} />
 {:else}

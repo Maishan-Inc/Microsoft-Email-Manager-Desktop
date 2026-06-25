@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { api, errMsg } from "../lib/api";
-  import { showToast } from "../lib/toast.svelte";
-  import { t, i18n } from "../lib/i18n.svelte";
-  import logo from "../assets/logo-black.svg";
-  import type { TotpSetup } from "../lib/types";
+  import { api, errMsg } from "../../lib/api";
+  import { showToast } from "../../lib/toast.svelte";
+  import { t, i18n } from "../../lib/i18n.svelte";
+  import logo from "../../assets/logo-black.svg";
+  import type { TotpSetup } from "../../lib/types";
 
-  let { initialized, onComplete }: { initialized: boolean; onComplete: () => void } =
-    $props();
+  let { onComplete }: { onComplete: () => void } = $props();
 
   type Step =
     | "splash"
@@ -22,8 +21,7 @@
     | "firstrun"
     | "tutorial";
 
-  // 已初始化但未完成引导 → 直接到「第一次/老用户」
-  let step = $state<Step>(initialized ? "firstrun" : "splash");
+  let step = $state<Step>("splash");
   let busy = $state(false);
 
   // 协议

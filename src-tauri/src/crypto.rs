@@ -14,9 +14,6 @@ use zeroize::Zeroize;
 
 use crate::error::{AppError, AppResult};
 
-/// 用于校验主密码是否正确的固定明文（解锁时解密比对）。
-const VERIFIER_PLAINTEXT: &[u8] = b"MEM_VERIFY_OK_v1";
-
 /// 派生密钥的安全封装：Drop 时清零。
 pub struct DerivedKey([u8; 32]);
 
@@ -126,19 +123,6 @@ pub fn unwrap_dek(kek: &DerivedKey, blob: &str) -> AppResult<DerivedKey> {
     let mut b = [0u8; 32];
     b.copy_from_slice(&bytes);
     Ok(DerivedKey::from_bytes(b))
-}
-
-/// 生成校验密文（首次设置主密码时调用）
-pub fn make_verifier(key: &DerivedKey) -> AppResult<String> {
-    key.encrypt(VERIFIER_PLAINTEXT)
-}
-
-/// 校验主密码：解密校验密文并比对
-pub fn verify(key: &DerivedKey, verifier: &str) -> AppResult<()> {
-    match key.decrypt(verifier) {
-        Ok(pt) if pt == VERIFIER_PLAINTEXT => Ok(()),
-        _ => Err(AppError::BadPassword),
-    }
 }
 
 pub fn b64_encode(bytes: &[u8]) -> String {

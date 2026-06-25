@@ -110,7 +110,9 @@
           class="acc-row card"
           role="button"
           tabindex="0"
-          onclick={() => onopenmail(a.email)}
+          onclick={(e) => {
+            if (!(e.target as HTMLElement).closest(".actions")) onopenmail(a.email);
+          }}
           onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onopenmail(a.email))}
         >
           <span class="dot {a.status === 'active' ? 'on' : 'off'}"></span>
@@ -128,7 +130,7 @@
 
           <span class="last muted small">{t("acc.lastCheck")}: {fmt(a.health_checked_at)}</span>
 
-          <div class="actions" role="group" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+          <div class="actions">
             <button
               class="ghost sm bell"
               class:active={a.notify_enabled}
