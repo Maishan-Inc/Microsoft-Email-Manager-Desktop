@@ -148,6 +148,15 @@ const M = {
   "unlock.processing": { zh: "处理中…", en: "Working…" },
   "unlock.need2fa": { zh: "请输入两步验证码", en: "Enter your 2FA code" },
   "unlock.verify2fa": { zh: "验证", en: "Verify" },
+  "unlock.forgot": { zh: "忘记密码？", en: "Forgot password?" },
+  "unlock.recoverTitle": { zh: "用助记词恢复", en: "Recover with phrase" },
+  "unlock.recoverHint": { zh: "输入你的 12 词恢复助记词（空格分隔）", en: "Enter your 12-word recovery phrase (space-separated)" },
+  "unlock.mnemonicPlaceholder": { zh: "助记词…", en: "recovery phrase…" },
+  "unlock.recover": { zh: "恢复", en: "Recover" },
+  "unlock.newPwTitle": { zh: "设置新主密码", en: "Set a new master password" },
+  "unlock.setNewPw": { zh: "保存新密码", en: "Save new password" },
+  "unlock.backToUnlock": { zh: "返回解锁", en: "Back to unlock" },
+  "unlock.recovered": { zh: "恢复成功，请设置新主密码", en: "Recovered — set a new master password" },
 
   // ===== 首启引导向导 =====
   "ob.splash.tagline": { zh: "本地加密 · 多账号 · 隐私优先", en: "Local-encrypted · Multi-account · Privacy-first" },
