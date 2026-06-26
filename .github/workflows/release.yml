@@ -7,6 +7,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "版本号 / Release tag（如 v1.0.0）"
+        required: true
+        default: "v1.0.0"
 
 jobs:
   build:
@@ -66,8 +71,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Microsoft-Email-Manager ${{ github.ref_name }}"
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Microsoft-Email-Manager ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: "自动构建的三端安装包（Windows / macOS / Linux）。"
           releaseDraft: true
           prerelease: false
