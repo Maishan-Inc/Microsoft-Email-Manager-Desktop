@@ -46,7 +46,10 @@
     "windows": {
       "nsis": {
         "languages": ["SimpChinese", "English"],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": true,
+        "headerImage": "icons/nsis-header.bmp",
+        "sidebarImage": "icons/nsis-sidebar.bmp",
+        "installerIcon": "icons/icon.ico"
       }
     }
   }
