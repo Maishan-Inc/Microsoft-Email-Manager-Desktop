@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest      # Apple Silicon + Intel 通用包
+          - platform: macos-15           # Apple Silicon + Intel 通用包
             args: "--target universal-apple-darwin"
           - platform: ubuntu-22.04      # deb / AppImage / rpm
             args: ""
