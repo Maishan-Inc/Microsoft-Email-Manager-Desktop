@@ -120,3 +120,5 @@ pnpm tauri build
 ## 开源说明
 
 源项目为 CC BY-NC 4.0。本桌面端沿用该许可，适合学习、研究与自用。
+
+[linux.do](https://linux.do)
