@@ -50,8 +50,7 @@ pub fn build_json(vault: &Vault, include_credentials: bool) -> AppResult<String>
     Ok(serde_json::to_string_pretty(&rows)?)
 }
 
-pub fn build_csv(vault: &Vault, include_credentials: bool) -> AppResult<String> {
-    let rows = collect_rows(vault, include_credentials)?;
+pub fn build_csv(vault: &Vault, include_credentials: bool) -> AppResult<String> {    let rows = collect_rows(vault, include_credentials)?;
     let mut wtr = csv::Writer::from_writer(Vec::new());
 
     let mut header = vec![
@@ -94,8 +93,29 @@ pub fn build_csv(vault: &Vault, include_credentials: bool) -> AppResult<String> 
     String::from_utf8(bytes).map_err(|e| AppError::Parse(e.to_string()))
 }
 
+/// 纯文本导出：每个账号一段，字段逐行，便于人工阅读。
+pub fn build_txt(vault: &Vault, include_credentials: bool) -> AppResult<String> {
+    let rows = collect_rows(vault, include_credentials)?;
+    let mut out = String::new();
+    out.push_str(&format!("# Microsoft Email Manager 导出\n# 账号数：{}\n\n", rows.len()));
+    for (i, r) in rows.iter().enumerate() {
+        out.push_str(&format!("[{}] {}\n", i + 1, r.email));
+        out.push_str(&format!("  认证方式 : {}\n", r.auth_method));
+        out.push_str(&format!("  客户端ID : {}\n", r.client_id));
+        if let Some(tok) = &r.refresh_token {
+            out.push_str(&format!("  刷新令牌 : {}\n", tok));
+        }
+        out.push_str(&format!("  状态     : {}\n", r.status));
+        out.push_str(&format!("  分类     : {}\n", r.category_key.clone().unwrap_or_default()));
+        out.push_str(&format!("  标签     : {}\n", r.tag_keys.join(", ")));
+        out.push_str(&format!("  创建时间 : {}\n", r.created_at));
+        out.push('\n');
+    }
+    Ok(out)
+}
+
 /// 生成导出内容并写入指定文件。
-/// - format: "json" | "csv"
+/// - format: "json" | "csv" | "txt"
 /// - include_credentials: 是否包含 refresh_token
 /// - encrypt_with: 若提供，则用主密钥对内容整体 AES-GCM 加密后写出（含凭据时建议开启）
 pub fn export_to_file(
@@ -107,6 +127,7 @@ pub fn export_to_file(
 ) -> AppResult<()> {
     let content = match format {
         "csv" => build_csv(vault, include_credentials)?,
+        "txt" => build_txt(vault, include_credentials)?,
         _ => build_json(vault, include_credentials)?,
     };
 

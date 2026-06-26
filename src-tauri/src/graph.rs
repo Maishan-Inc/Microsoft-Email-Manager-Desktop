@@ -336,6 +336,15 @@ pub async fn probe(token: &str) -> AppResult<()> {
     .map(|_| ())
 }
 
+/// 用已有 access_token 直接拉收件箱（锁后令牌即焚场景，无需 refresh_token）。
+pub async fn list_inbox_with_token(token: &str, limit: u32) -> AppResult<Vec<EmailItem>> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    let (items, _total) = list_folder(&client, token, "inbox", 1, limit, None, None).await?;
+    Ok(items)
+}
+
 /// 最小 URL 百分号编码（仅对 path 段中的非安全字符），避免引入额外依赖。
 fn url_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());

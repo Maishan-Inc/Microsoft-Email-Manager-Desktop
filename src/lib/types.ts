@@ -105,6 +105,8 @@ export interface DashboardStats {
 export interface AppSettings {
   bg_refresh_enabled: boolean;
   bg_refresh_interval_secs: number;
+  auto_lock_mins: number;
+  block_remote_images: boolean;
 }
 
 /** 首启引导状态（驱动向导显隐） */
@@ -147,5 +149,14 @@ export interface CredsReveal {
   client_id: string;
   refresh_token: string;
   combined: string;
+}
+
+/** 锁定期间到达的新邮件（最小信息，供锁屏列表） */
+export interface LockedMail {
+  email: string;
+  from: string;
+  message_id: string;
+  received_at: string;
+  has_code: boolean;
 }
 

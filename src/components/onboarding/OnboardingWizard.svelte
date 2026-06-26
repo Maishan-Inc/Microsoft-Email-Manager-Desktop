@@ -4,6 +4,8 @@
   import { t, i18n } from "../../lib/i18n.svelte";
   import logo from "../../assets/logo-black.png";
   import Icon from "../Icon.svelte";
+  import OtpInput from "../OtpInput.svelte";
+  import Spinner from "../Spinner.svelte";
   import confetti from "canvas-confetti";
   import { fly } from "svelte/transition";
   import type { TotpSetup } from "../../lib/types";
@@ -321,11 +323,12 @@
           <button class="sm" onclick={copySecret}>{t("ob.totp.copy")}</button>
         </div>
       {/if}
-      <input class="code" placeholder={t("ob.totp.tokenPlaceholder")} bind:value={totpCode} inputmode="numeric"
-        onkeydown={(e) => e.key === "Enter" && verifyTotp()} />
+      <div class="otp-wrap">
+        <OtpInput bind:value={totpCode} autofocus oncomplete={verifyTotp} />
+      </div>
       <div class="btn-row">
         <button onclick={() => (step = "ask2fa")}>{t("common.back")}</button>
-        <button class="primary" disabled={busy} onclick={verifyTotp}>{t("ob.totp.verify")}</button>
+        <button class="primary" disabled={busy || totpCode.length < 6} onclick={verifyTotp}>{t("ob.totp.verify")}</button>
       </div>
     {:else if step === "authmode"}
       <h2>{t("ob.authmode.title")}</h2>
@@ -373,7 +376,7 @@
       </div>
       <div class="btn-row">
         <button onclick={() => (step = "mnemonicShow")}>{t("common.back")}</button>
-        <button class="primary" disabled={busy} onclick={confirmMnemonic}>{busy ? t("unlock.processing") : t("common.confirm")}</button>
+        <button class="primary" disabled={busy} onclick={confirmMnemonic}>{#if busy}<Spinner size={16} />{:else}{t("common.confirm")}{/if}</button>
       </div>
     {:else if step === "done"}
       <div class="done">
@@ -484,6 +487,7 @@
     width: 72px;
     height: 72px;
     object-fit: contain;
+    border-radius: var(--r-lg);
     filter: invert(var(--logo-invert));
     animation: pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
   }
@@ -569,6 +573,9 @@
     text-align: center;
     letter-spacing: 4px;
     font-size: 18px;
+  }
+  .otp-wrap {
+    margin: var(--s-xs) 0;
   }
 
   /* choices */

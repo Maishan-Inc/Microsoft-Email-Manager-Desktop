@@ -2,7 +2,11 @@
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
+  import { isQuick, toggleQuick } from "../lib/quickview.svelte";
   import Icon from "./Icon.svelte";
+  import OtpInput from "./OtpInput.svelte";
+  import Spinner from "./Spinner.svelte";
+  import Select, { type SelectOption } from "./Select.svelte";
   import type { AccountInfo, Catalog } from "../lib/types";
 
   let {
@@ -36,6 +40,12 @@
       tagKeys = [...account.tag_keys];
     }
   });
+
+  let categoryOptions = $derived<SelectOption[]>([
+    { value: "", label: t("cfg.noCategory") },
+    ...catalog.categories.map((c) => ({ value: c.key, label: `${c.name_zh} / ${c.name_en}` })),
+  ]);
+  let pinnedQuick = $derived(isQuick(account.email));
 
   function maskRight(s: string): string {
     const half = Math.ceil(s.length / 2);
@@ -117,19 +127,27 @@
           </div>
         {:else}
           <div class="value mono masked">••••••••••••••••••••••••</div>
-          <div class="reveal-row">
-            <input
-              class="rev-input"
-              type={needs2fa ? "text" : "password"}
-              inputmode={needs2fa ? "numeric" : undefined}
-              placeholder={needs2fa ? t("cfg.prompt2fa") : t("cfg.promptPw")}
-              bind:value={secret}
-              onkeydown={(e) => e.key === "Enter" && reveal()}
-            />
-            <button class="primary sm" disabled={revealing} onclick={reveal}>
-              <Icon name="eye" size={14} /> {t("cfg.verifyShow")}
-            </button>
-          </div>
+          {#if needs2fa}
+            <div class="reveal-2fa">
+              <OtpInput bind:value={secret} oncomplete={reveal} />
+              <button class="primary sm" disabled={revealing || secret.length < 6} onclick={reveal}>
+                {#if revealing}<Spinner size={14} />{:else}<Icon name="eye" size={14} /> {t("cfg.verifyShow")}{/if}
+              </button>
+            </div>
+          {:else}
+            <div class="reveal-row">
+              <input
+                class="rev-input"
+                type="password"
+                placeholder={t("cfg.promptPw")}
+                bind:value={secret}
+                onkeydown={(e) => e.key === "Enter" && reveal()}
+              />
+              <button class="primary sm" disabled={revealing} onclick={reveal}>
+                {#if revealing}<Spinner size={14} />{:else}<Icon name="eye" size={14} /> {t("cfg.verifyShow")}{/if}
+              </button>
+            </div>
+          {/if}
         {/if}
       </div>
 
@@ -138,12 +156,7 @@
         <span class="lbl">{t("cfg.classification")}</span>
         <div class="cls">
           <span class="sub">{t("cfg.category")}</span>
-          <select bind:value={categoryKey}>
-            <option value="">{t("cfg.noCategory")}</option>
-            {#each catalog.categories as c (c.key)}
-              <option value={c.key}>{c.name_zh} / {c.name_en}</option>
-            {/each}
-          </select>
+          <Select bind:value={categoryKey} options={categoryOptions} width="100%" />
         </div>
         <div class="cls">
           <span class="sub">{t("cfg.tags")}</span>
@@ -164,12 +177,25 @@
           </div>
         </div>
       </div>
+
+      <!-- 快捷查看开关 -->
+      <div class="field">
+        <span class="lbl">{t("cfg.quickView")}</span>
+        <label class="switch">
+          <input
+            type="checkbox"
+            checked={pinnedQuick}
+            onchange={() => toggleQuick(account.email)}
+          />
+          <span>{t("cfg.quickViewOn")}</span>
+        </label>
+      </div>
     </div>
 
     <footer class="m-foot">
       <button onclick={onclose}>{t("common.cancel")}</button>
       <button class="primary" disabled={saving} onclick={save}>
-        {saving ? t("unlock.processing") : t("common.save")}
+        {#if saving}<Spinner size={16} />{:else}{t("common.save")}{/if}
       </button>
     </footer>
   </div>
@@ -258,6 +284,22 @@
     display: flex;
     gap: var(--s-xs);
     align-items: center;
+  }
+  .reveal-2fa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-sm);
+  }
+  .switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .switch input {
+    width: auto;
+    height: auto;
   }
   .token {
     flex: 1;

@@ -40,7 +40,7 @@
 <aside class="sidebar">
   <div class="brand">
     <img src={logoBlack} alt="logo" class="logo" />
-    <span class="brand-name">{t("app.name")}</span>
+    <span class="brand-name">MSEmailManager</span>
   </div>
 
   <nav class="nav">
@@ -90,6 +90,7 @@
     width: 30px;
     height: 30px;
     object-fit: contain;
+    border-radius: var(--r-sm);
     filter: invert(var(--logo-invert));
   }
   .brand-name {

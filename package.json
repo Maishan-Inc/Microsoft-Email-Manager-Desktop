@@ -1,6 +1,6 @@
 {
   "name": "microsoft-email-manager-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Microsoft 邮箱本地管理桌面端（Tauri + Rust + Svelte）",
   "type": "module",
   "license": "CC-BY-NC-4.0",

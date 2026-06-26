@@ -9,7 +9,7 @@ use crate::models::{AccountCredentials, AccountInfo, ClassificationOption};
 const SCHEMA_VERSION: i64 = 2;
 
 /// 默认后台刷新间隔（秒）
-pub const DEFAULT_POLL_SECS: i64 = 300;
+pub const DEFAULT_POLL_SECS: i64 = 5;
 
 /// 打开数据库并执行迁移
 pub fn open(path: &std::path::Path) -> AppResult<Connection> {
@@ -131,6 +131,11 @@ pub fn set_meta(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         params![key, value],
     )?;
+    Ok(())
+}
+
+pub fn del_meta(conn: &Connection, key: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM app_meta WHERE key = ?1", params![key])?;
     Ok(())
 }
 

@@ -78,7 +78,13 @@ pub fn run() {
             commands::recover_with_mnemonic,
             commands::reset_password,
             commands::reveal_credentials,
+            commands::verify_auth,
             commands::auth_mode_info,
+            commands::regenerate_mnemonic,
+            commands::set_two_factor,
+            commands::open_url,
+            commands::set_active_mailbox,
+            commands::locked_items,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

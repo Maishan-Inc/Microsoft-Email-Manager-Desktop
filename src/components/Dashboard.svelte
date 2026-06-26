@@ -2,11 +2,18 @@
   import { api, errMsg } from "../lib/api";
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
+  import { senderAddress } from "../lib/brandLogos";
   import { listen } from "@tauri-apps/api/event";
   import Icon from "./Icon.svelte";
   import type { DashboardStats } from "../lib/types";
 
-  let { onnavigate }: { onnavigate: (v: "accounts" | "add") => void } = $props();
+  let {
+    onnavigate,
+    onopenmail,
+  }: {
+    onnavigate: (v: "accounts" | "add") => void;
+    onopenmail: (email: string, messageId: string) => void;
+  } = $props();
 
   let stats = $state<DashboardStats | null>(null);
   let loading = $state(false);
@@ -127,9 +134,12 @@
       <ul class="recent-list">
         {#each stats.recent as m (m.email + m.message_id)}
           <li>
-            <span class="r-from">{m.from_email}</span>
-            <span class="r-subj">{m.subject}</span>
-            <span class="r-time muted small">{fmtTime(m.received_at)}</span>
+            <button class="recent-row" onclick={() => onopenmail(m.email, m.message_id)} title={m.subject}>
+              <span class="r-acct">{m.email}</span>
+              <span class="r-subj">{m.subject || "(无主题)"}</span>
+              <span class="r-from muted">{senderAddress(m.from_email) || m.from_email}</span>
+              <span class="r-time muted small">{fmtTime(m.received_at)}</span>
+            </button>
           </li>
         {/each}
       </ul>
@@ -239,19 +249,37 @@
     flex-direction: column;
   }
   .recent-list li {
-    display: grid;
-    grid-template-columns: 180px 1fr auto;
-    gap: var(--s-sm);
-    align-items: center;
-    padding: var(--s-xs) 0;
     border-bottom: 1px solid var(--hairline);
   }
   .recent-list li:last-child {
     border-bottom: none;
   }
-  .r-from {
+  .recent-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(0, 1.4fr) minmax(120px, 1fr) auto;
+    gap: var(--s-sm);
+    align-items: center;
+    width: 100%;
+    height: auto;
+    padding: var(--s-xs) var(--s-xs);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    text-align: left;
+  }
+  .recent-row:hover {
+    background: var(--canvas-soft);
+    border-color: var(--hairline);
+  }
+  .r-acct {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .r-from {
+    font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -261,6 +289,9 @@
     color: var(--body);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .r-time {
     white-space: nowrap;
   }
   .quick {

@@ -18,7 +18,7 @@ use crate::models::{
     normalize_auth_method, AccountCredentials, AccountInfo, ClassificationOption, DashboardStats,
     EmailDetails, EmailListResponse,
 };
-use crate::state::{AppState, Vault};
+use crate::state::{AppState, LockedMail, Vault};
 
 #[derive(Serialize)]
 pub struct AppStatus {
@@ -68,17 +68,24 @@ fn now_rfc3339() -> String {
 }
 
 #[tauri::command]
-pub fn setup_master_password(state: State<'_, AppState>, password: String) -> AppResult<()> {
+pub async fn setup_master_password(state: State<'_, AppState>, password: String) -> AppResult<()> {
     if password.len() < 8 {
         return Err(AppError::Other("主密码至少 8 位".into()));
     }
-    let conn = db::open(&state.db_path)?;
-    if db::is_initialized(&conn)? {
-        return Err(AppError::AlreadyInitialized);
-    }
-    let dek = init_dek_with_password(&conn, &password)?;
-    db::set_meta(&conn, "auth_mode", "password_only")?;
-    state.set_vault(Vault { conn, key: dek });
+    // Argon2 派生很重，放到阻塞线程，避免主线程卡死（窗口「未响应」）。
+    let db_path = state.db_path.clone();
+    let vault = tokio::task::spawn_blocking(move || -> AppResult<Vault> {
+        let conn = db::open(&db_path)?;
+        if db::is_initialized(&conn)? {
+            return Err(AppError::AlreadyInitialized);
+        }
+        let dek = init_dek_with_password(&conn, &password)?;
+        db::set_meta(&conn, "auth_mode", "password_only")?;
+        Ok(Vault { conn, key: dek })
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+    state.set_vault(vault);
     Ok(())
 }
 
@@ -88,22 +95,31 @@ pub struct UnlockResult {
 }
 
 #[tauri::command]
-pub fn unlock(state: State<'_, AppState>, password: String) -> AppResult<UnlockResult> {
-    let conn = db::open(&state.db_path)?;
-    let salt_b64 = db::get_meta(&conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
-    let salt = crypto::b64_decode(&salt_b64)?;
-    let kek = crypto::derive_key(&password, &salt)?;
-    let wrapped = db::get_meta(&conn, "dek_wrapped_pw")?.ok_or(AppError::BadPassword)?;
-    // GCM 认证失败即密码错误
-    let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::BadPassword)?;
+pub async fn unlock(state: State<'_, AppState>, password: String) -> AppResult<UnlockResult> {
+    let db_path = state.db_path.clone();
+    // 开锁的 Argon2 派生放到阻塞线程，避免 UI 卡死。
+    let (vault, needs_2fa) = tokio::task::spawn_blocking(move || -> AppResult<(Vault, bool)> {
+        let conn = db::open(&db_path)?;
+        let salt_b64 = db::get_meta(&conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
+        let salt = crypto::b64_decode(&salt_b64)?;
+        let kek = crypto::derive_key(&password, &salt)?;
+        let wrapped = db::get_meta(&conn, "dek_wrapped_pw")?.ok_or(AppError::BadPassword)?;
+        // GCM 认证失败即密码错误
+        let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::BadPassword)?;
 
-    let auth_mode = db::get_meta(&conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
-    let has_totp = db::get_meta(&conn, "totp_secret_enc")?.is_some();
-    if auth_mode != "password_only" && has_totp {
-        state.set_pending(Vault { conn, key: dek });
+        let auth_mode = db::get_meta(&conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
+        let has_totp = db::get_meta(&conn, "totp_secret_enc")?.is_some();
+        let needs_2fa = auth_mode != "password_only" && has_totp;
+        Ok((Vault { conn, key: dek }, needs_2fa))
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+
+    if needs_2fa {
+        state.set_pending(vault);
         Ok(UnlockResult { needs_2fa: true })
     } else {
-        state.set_vault(Vault { conn, key: dek });
+        state.set_vault(vault);
         Ok(UnlockResult { needs_2fa: false })
     }
 }
@@ -155,12 +171,14 @@ pub fn import_accounts(
     state: State<'_, AppState>,
     text: String,
     auth_method: String,
+    category_key: Option<String>,
+    tag_keys: Vec<String>,
 ) -> AppResult<ImportResult> {
     let (creds_list, mut errors) = accounts::parse_import_bulk(&text, &auth_method);
     let mut added = 0usize;
     state.with_vault(|v| {
         for c in &creds_list {
-            match db::upsert_account(&v.conn, &v.key, c, None, &[]) {
+            match db::upsert_account(&v.conn, &v.key, c, category_key.as_deref(), &tag_keys) {
                 Ok(_) => added += 1,
                 Err(e) => errors.push(format!("{}: {}", c.email, e)),
             }
@@ -359,6 +377,8 @@ pub async fn sync_mail_now(app: tauri::AppHandle) -> AppResult<usize> {
 pub struct AppSettings {
     pub bg_refresh_enabled: bool,
     pub bg_refresh_interval_secs: i64,
+    pub auto_lock_mins: i64,
+    pub block_remote_images: bool,
 }
 
 #[tauri::command]
@@ -370,9 +390,17 @@ pub fn get_settings(state: State<'_, AppState>) -> AppResult<AppSettings> {
         let bg_refresh_interval_secs = db::get_meta(&v.conn, "bg_refresh_interval_secs")?
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(db::DEFAULT_POLL_SECS);
+        let auto_lock_mins = db::get_meta(&v.conn, "auto_lock_mins")?
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(30);
+        let block_remote_images = db::get_meta(&v.conn, "block_remote_images")?
+            .map(|s| s != "0")
+            .unwrap_or(true);
         Ok(AppSettings {
             bg_refresh_enabled,
             bg_refresh_interval_secs,
+            auto_lock_mins,
+            block_remote_images,
         })
     })
 }
@@ -388,8 +416,10 @@ pub fn set_settings(state: State<'_, AppState>, settings: AppSettings) -> AppRes
         db::set_meta(
             &v.conn,
             "bg_refresh_interval_secs",
-            &settings.bg_refresh_interval_secs.max(30).to_string(),
+            &settings.bg_refresh_interval_secs.max(5).to_string(),
         )?;
+        db::set_meta(&v.conn, "auto_lock_mins", &settings.auto_lock_mins.max(0).to_string())?;
+        db::set_meta(&v.conn, "block_remote_images", if settings.block_remote_images { "1" } else { "0" })?;
         Ok(())
     })
 }
@@ -486,46 +516,53 @@ pub struct SecuritySetup {
 
 /// 一次性原子完成安全配置：建 DEK，密码（+助记词）包装，存 TOTP 与 auth_mode，解锁。
 #[tauri::command]
-pub fn complete_setup(state: State<'_, AppState>, setup: SecuritySetup) -> AppResult<()> {
+pub async fn complete_setup(state: State<'_, AppState>, setup: SecuritySetup) -> AppResult<()> {
     if setup.password.len() < 8 {
         return Err(AppError::Other("主密码至少 8 位".into()));
     }
-    let conn = db::open(&state.db_path)?;
-    if db::is_initialized(&conn)? {
-        return Err(AppError::AlreadyInitialized);
-    }
-    let dek = init_dek_with_password(&conn, &setup.password)?;
-
-    // 助记词恢复包装
-    if let Some(phrase) = setup.mnemonic.as_ref().filter(|p| !p.trim().is_empty()) {
-        let salt = crypto::new_salt();
-        let kek = crypto::derive_key(phrase.trim(), &salt)?;
-        db::set_meta(&conn, "salt_mn", &crypto::b64_encode(&salt))?;
-        db::set_meta(&conn, "dek_wrapped_mn", &crypto::wrap_dek(&kek, &dek)?)?;
-    }
-
-    // TOTP 密钥（DEK 加密存储）
-    let has_totp = setup
-        .totp_secret
-        .as_ref()
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false);
-    if let Some(secret) = setup.totp_secret.as_ref().filter(|s| !s.trim().is_empty()) {
-        db::set_meta(&conn, "totp_secret_enc", &dek.encrypt_str(secret)?)?;
-    }
-
-    let auth_mode = if has_totp {
-        if setup.auth_mode.is_empty() {
-            "password_2fa".to_string()
-        } else {
-            setup.auth_mode.clone()
+    let db_path = state.db_path.clone();
+    // 多次 Argon2（密码 + 助记词）放到阻塞线程，避免向导卡死。
+    let vault = tokio::task::spawn_blocking(move || -> AppResult<Vault> {
+        let conn = db::open(&db_path)?;
+        if db::is_initialized(&conn)? {
+            return Err(AppError::AlreadyInitialized);
         }
-    } else {
-        "password_only".to_string()
-    };
-    db::set_meta(&conn, "auth_mode", &auth_mode)?;
+        let dek = init_dek_with_password(&conn, &setup.password)?;
 
-    state.set_vault(Vault { conn, key: dek });
+        // 助记词恢复包装
+        if let Some(phrase) = setup.mnemonic.as_ref().filter(|p| !p.trim().is_empty()) {
+            let salt = crypto::new_salt();
+            let kek = crypto::derive_key(phrase.trim(), &salt)?;
+            db::set_meta(&conn, "salt_mn", &crypto::b64_encode(&salt))?;
+            db::set_meta(&conn, "dek_wrapped_mn", &crypto::wrap_dek(&kek, &dek)?)?;
+        }
+
+        // TOTP 密钥（DEK 加密存储）
+        let has_totp = setup
+            .totp_secret
+            .as_ref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+        if let Some(secret) = setup.totp_secret.as_ref().filter(|s| !s.trim().is_empty()) {
+            db::set_meta(&conn, "totp_secret_enc", &dek.encrypt_str(secret)?)?;
+        }
+
+        let auth_mode = if has_totp {
+            if setup.auth_mode.is_empty() {
+                "password_2fa".to_string()
+            } else {
+                setup.auth_mode.clone()
+            }
+        } else {
+            "password_only".to_string()
+        };
+        db::set_meta(&conn, "auth_mode", &auth_mode)?;
+        Ok(Vault { conn, key: dek })
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+
+    state.set_vault(vault);
     Ok(())
 }
 
@@ -557,31 +594,42 @@ pub fn verify_2fa(state: State<'_, AppState>, code: String) -> AppResult<()> {
 
 /// 用恢复助记词解出 DEK 并解锁（之后建议立即 reset_password）。
 #[tauri::command]
-pub fn recover_with_mnemonic(state: State<'_, AppState>, words: String) -> AppResult<()> {
+pub async fn recover_with_mnemonic(state: State<'_, AppState>, words: String) -> AppResult<()> {
     if !security::mnemonic_valid(&words) {
         return Err(AppError::Other("助记词格式不正确".into()));
     }
-    let conn = db::open(&state.db_path)?;
-    let salt_b64 = db::get_meta(&conn, "salt_mn")?
-        .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
-    let salt = crypto::b64_decode(&salt_b64)?;
-    let kek = crypto::derive_key(words.trim(), &salt)?;
-    let wrapped = db::get_meta(&conn, "dek_wrapped_mn")?
-        .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
-    let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::Other("助记词不正确".into()))?;
-    state.set_vault(Vault { conn, key: dek });
+    let db_path = state.db_path.clone();
+    let vault = tokio::task::spawn_blocking(move || -> AppResult<Vault> {
+        let conn = db::open(&db_path)?;
+        let salt_b64 = db::get_meta(&conn, "salt_mn")?
+            .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
+        let salt = crypto::b64_decode(&salt_b64)?;
+        let kek = crypto::derive_key(words.trim(), &salt)?;
+        let wrapped = db::get_meta(&conn, "dek_wrapped_mn")?
+            .ok_or_else(|| AppError::Other("未配置恢复助记词".into()))?;
+        let dek = crypto::unwrap_dek(&kek, &wrapped).map_err(|_| AppError::Other("助记词不正确".into()))?;
+        Ok(Vault { conn, key: dek })
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+    state.set_vault(vault);
     Ok(())
 }
 
 /// 重设主密码（用当前 DEK 重新做密码包装）。
 #[tauri::command]
-pub fn reset_password(state: State<'_, AppState>, new_password: String) -> AppResult<()> {
+pub async fn reset_password(state: State<'_, AppState>, new_password: String) -> AppResult<()> {
     if new_password.len() < 8 {
         return Err(AppError::Other("主密码至少 8 位".into()));
     }
+    // 先离开主线程做 Argon2 派生，再回到锁内做快速的包装写库。
+    let salt = crypto::new_salt();
+    let salt_vec = salt.to_vec();
+    let np = new_password.clone();
+    let kek = tokio::task::spawn_blocking(move || crypto::derive_key(&np, &salt_vec))
+        .await
+        .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
     state.with_vault(|v| {
-        let salt = crypto::new_salt();
-        let kek = crypto::derive_key(&new_password, &salt)?;
         db::set_meta(&v.conn, "salt_pw", &crypto::b64_encode(&salt))?;
         db::set_meta(&v.conn, "dek_wrapped_pw", &crypto::wrap_dek(&kek, &v.key)?)?;
         Ok(())
@@ -596,31 +644,53 @@ pub struct CredsReveal {
     pub combined: String,
 }
 
+/// 二次校验所需材料：2FA 走动态码（已解出的 TOTP 密钥），否则走主密码（salt + 包装）。
+enum VerifyMaterial {
+    Totp(String),
+    Pw { salt: Vec<u8>, wrapped: String },
+}
+
+/// 在锁内收集校验材料（不做重计算）。
+fn gather_verify_material(v: &Vault) -> AppResult<VerifyMaterial> {
+    let auth_mode = db::get_meta(&v.conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
+    let totp_enc = db::get_meta(&v.conn, "totp_secret_enc")?;
+    if auth_mode != "password_only" && totp_enc.is_some() {
+        let totp = v.key.decrypt_str(&totp_enc.unwrap())?;
+        Ok(VerifyMaterial::Totp(totp))
+    } else {
+        let salt_b64 = db::get_meta(&v.conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
+        let salt = crypto::b64_decode(&salt_b64)?;
+        let wrapped = db::get_meta(&v.conn, "dek_wrapped_pw")?.ok_or(AppError::BadPassword)?;
+        Ok(VerifyMaterial::Pw { salt, wrapped })
+    }
+}
+
+/// 校验密钥/动态码；密码路径的 Argon2 放阻塞线程。
+async fn check_secret(material: VerifyMaterial, secret: &str) -> AppResult<bool> {
+    Ok(match material {
+        VerifyMaterial::Totp(totp) => security::totp_verify(&totp, secret.trim()),
+        VerifyMaterial::Pw { salt, wrapped } => {
+            let s = secret.to_string();
+            let kek = tokio::task::spawn_blocking(move || crypto::derive_key(&s, &salt))
+                .await
+                .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+            crypto::unwrap_dek(&kek, &wrapped).is_ok()
+        }
+    })
+}
+
 /// 揭示某账号的完整凭据。需二次校验：开启 2FA 时校验动态码，否则校验主密码。
 #[tauri::command]
-pub fn reveal_credentials(
+pub async fn reveal_credentials(
     state: State<'_, AppState>,
     email: String,
     secret: String,
 ) -> AppResult<CredsReveal> {
+    let material = state.with_vault(gather_verify_material)?;
+    if !check_secret(material, &secret).await? {
+        return Err(AppError::Other("验证失败".into()));
+    }
     state.with_vault(|v| {
-        let auth_mode = db::get_meta(&v.conn, "auth_mode")?.unwrap_or_else(|| "password_only".into());
-        let totp_enc = db::get_meta(&v.conn, "totp_secret_enc")?;
-        let ok = if auth_mode != "password_only" && totp_enc.is_some() {
-            let totp = v.key.decrypt_str(&totp_enc.unwrap())?;
-            security::totp_verify(&totp, secret.trim())
-        } else {
-            let salt_b64 = db::get_meta(&v.conn, "salt_pw")?.ok_or(AppError::BadPassword)?;
-            let salt = crypto::b64_decode(&salt_b64)?;
-            let kek = crypto::derive_key(&secret, &salt)?;
-            match db::get_meta(&v.conn, "dek_wrapped_pw")? {
-                Some(w) => crypto::unwrap_dek(&kek, &w).is_ok(),
-                None => false,
-            }
-        };
-        if !ok {
-            return Err(AppError::Other("验证失败".into()));
-        }
         let creds = db::get_credentials(&v.conn, &v.key, &email)?;
         let combined = format!("{}----{}", creds.refresh_token, creds.client_id);
         Ok(CredsReveal {
@@ -632,6 +702,61 @@ pub fn reveal_credentials(
     })
 }
 
+/// 二次身份校验（用于敏感设置变更前确认身份）：有 2FA 校验动态码，否则校验主密码。
+#[tauri::command]
+pub async fn verify_auth(state: State<'_, AppState>, secret: String) -> AppResult<()> {
+    let material = state.with_vault(gather_verify_material)?;
+    if check_secret(material, &secret).await? {
+        Ok(())
+    } else {
+        Err(AppError::Other("验证失败".into()))
+    }
+}
+
+/// 重新生成恢复助记词：先二次校验（密码/2FA），再用当前 DEK 重新包装并落库。返回新助记词。
+#[tauri::command]
+pub async fn regenerate_mnemonic(
+    state: State<'_, AppState>,
+    secret: String,
+) -> AppResult<MnemonicGen> {
+    let material = state.with_vault(gather_verify_material)?;
+    if !check_secret(material, &secret).await? {
+        return Err(AppError::Other("验证失败".into()));
+    }
+    let words = security::mnemonic_new()?;
+    let phrase = words.join(" ");
+    // Argon2 离开主线程
+    let salt = crypto::new_salt();
+    let salt_vec = salt.to_vec();
+    let kek = tokio::task::spawn_blocking(move || crypto::derive_key(phrase.trim(), &salt_vec))
+        .await
+        .map_err(|e| AppError::Other(format!("任务执行失败: {e}")))??;
+    state.with_vault(|v| {
+        db::set_meta(&v.conn, "salt_mn", &crypto::b64_encode(&salt))?;
+        db::set_meta(&v.conn, "dek_wrapped_mn", &crypto::wrap_dek(&kek, &v.key)?)?;
+        Ok(())
+    })?;
+    Ok(MnemonicGen { words })
+}
+
+/// 在已解锁状态下开关 2FA：Some(secret) = 开启（存 TOTP 密钥 + password_2fa）；None = 关闭。
+#[tauri::command]
+pub fn set_two_factor(state: State<'_, AppState>, totp_secret: Option<String>) -> AppResult<()> {
+    state.with_vault(|v| {
+        match totp_secret.as_ref().filter(|s| !s.trim().is_empty()) {
+            Some(secret) => {
+                db::set_meta(&v.conn, "totp_secret_enc", &v.key.encrypt_str(secret.trim())?)?;
+                db::set_meta(&v.conn, "auth_mode", "password_2fa")?;
+            }
+            None => {
+                db::del_meta(&v.conn, "totp_secret_enc")?;
+                db::set_meta(&v.conn, "auth_mode", "password_only")?;
+            }
+        }
+        Ok(())
+    })
+}
+
 /// 当前认证模式（供前端决定揭示凭据时提示密码还是动态码）。
 #[tauri::command]
 pub fn auth_mode_info(state: State<'_, AppState>) -> AppResult<bool> {
@@ -640,4 +765,42 @@ pub fn auth_mode_info(state: State<'_, AppState>) -> AppResult<bool> {
         let has_totp = db::get_meta(&v.conn, "totp_secret_enc")?.is_some();
         Ok(auth_mode != "password_only" && has_totp)
     })
+}
+
+/// 用系统默认浏览器打开外部链接（仅允许 http/https，过滤注入字符）。
+#[tauri::command]
+pub fn open_url(url: String) -> AppResult<()> {
+    let safe = (url.starts_with("https://") || url.starts_with("http://"))
+        && url.len() < 2048
+        && !url.chars().any(|c| {
+            matches!(c, '"' | '\'' | ' ' | '\n' | '\r' | '\t' | '&' | '|' | ';' | '<' | '>' | '^' | '`' | '$' | '(' | ')')
+        });
+    if !safe {
+        return Err(AppError::Other("非法链接".into()));
+    }
+
+    #[cfg(target_os = "windows")]
+    let spawned = std::process::Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", &url])
+        .spawn();
+    #[cfg(target_os = "macos")]
+    let spawned = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let spawned = std::process::Command::new("xdg-open").arg(&url).spawn();
+
+    spawned.map(|_| ()).map_err(|e| AppError::Io(e.to_string()))
+}
+
+/// 记录「当前在邮件页打开的邮箱」，纳入锁后监视（令牌即焚）。传 null 清除。
+#[tauri::command]
+pub fn set_active_mailbox(state: State<'_, AppState>, email: Option<String>) -> AppResult<()> {
+    state.set_active_mailbox(email);
+    Ok(())
+}
+
+/// 锁定期间累计的新邮件（最小信息：邮箱+发件人+message_id+是否含验证码）。
+/// 锁屏列表使用，**无需解锁**即可读取。
+#[tauri::command]
+pub fn locked_items(state: State<'_, AppState>) -> AppResult<Vec<LockedMail>> {
+    Ok(state.locked_items())
 }

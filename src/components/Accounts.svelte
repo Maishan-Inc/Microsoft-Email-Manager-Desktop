@@ -3,6 +3,8 @@
   import { showToast } from "../lib/toast.svelte";
   import { t } from "../lib/i18n.svelte";
   import Icon from "./Icon.svelte";
+  import Spinner from "./Spinner.svelte";
+  import Select, { type SelectOption } from "./Select.svelte";
   import AccountConfigModal from "./AccountConfigModal.svelte";
   import type { AccountInfo, Catalog } from "../lib/types";
 
@@ -52,6 +54,19 @@
   let domains = $derived(
     [...new Set(accounts.map((a) => a.email.split("@")[1]).filter(Boolean))].sort(),
   );
+
+  let domainOptions = $derived<SelectOption[]>([
+    { value: "", label: t("acc.allDomains") },
+    ...domains.map((d) => ({ value: d, label: `@${d}` })),
+  ]);
+  let categoryOptions = $derived<SelectOption[]>([
+    { value: "", label: t("acc.allCategories") },
+    ...catalog.categories.map((c) => ({ value: c.key, label: c.name_zh })),
+  ]);
+  let tagOptions = $derived<SelectOption[]>([
+    { value: "", label: t("acc.allTags") },
+    ...catalog.tags.map((tg) => ({ value: tg.key, label: tg.name_zh })),
+  ]);
   let filtered = $derived(
     accounts.filter((a) => {
       const q = searchTerm.trim().toLowerCase();
@@ -105,6 +120,30 @@
     showToast(t("acc.deleteSel"), failed ? "info" : "ok");
     clearSel();
     await refresh();
+  }
+
+  let batchHealthing = $state(false);
+  async function batchCheckHealth() {
+    if (!selected.size || batchHealthing) return;
+    batchHealthing = true;
+    const total = selected.size;
+    let ok = 0;
+    for (const email of selected) {
+      try {
+        const res = await api.checkAccountHealth(email);
+        const a = accounts.find((x) => x.email === email);
+        if (a) {
+          a.health_summary = res.summary;
+          a.health_score = res.score;
+          a.health_checked_at = new Date().toISOString();
+        }
+        ok++;
+      } catch {
+        /* 单个失败不中断 */
+      }
+    }
+    batchHealthing = false;
+    showToast(`${t("acc.health")} ${ok}/${total}`, ok === total ? "ok" : "info");
   }
 
   function rowClick(e: MouseEvent, email: string) {
@@ -168,7 +207,20 @@
 <div class="view">
   <header class="view-head">
     <h1>{t("acc.title")} <span class="muted count">{t("acc.count", { n: accounts.length })}</span></h1>
-    <div class="row">
+    <div class="row head-actions">
+      {#if batchMode}
+        <div class="batch-controls">
+          <span class="sel-count">{t("acc.selectedN", { n: selected.size })}</span>
+          <button class="sm" onclick={selectAll}>{t("acc.selectAll")}</button>
+          <button class="sm" onclick={batchCheckHealth} disabled={!selected.size || batchHealthing}>
+            {#if batchHealthing}<Spinner size={14} />{:else}<Icon name="check" size={14} /> {t("acc.health")}{/if}
+          </button>
+          <button class="sm" onclick={clearSel}>{t("acc.clearSel")}</button>
+          <button class="sm danger" disabled={!selected.size} onclick={batchDelete}>
+            <Icon name="trash" size={14} /> {t("acc.deleteSel")}
+          </button>
+        </div>
+      {/if}
       <button class:active={batchMode} onclick={() => (batchMode ? exitBatch() : (batchMode = true))}>
         {batchMode ? t("acc.batchExit") : t("acc.batch")}
       </button>
@@ -182,31 +234,10 @@
       <Icon name="search" size={16} />
       <input placeholder={t("acc.search")} bind:value={searchTerm} />
     </div>
-    <select bind:value={domainFilter} class="flt">
-      <option value="">{t("acc.allDomains")}</option>
-      {#each domains as d (d)}<option value={d}>@{d}</option>{/each}
-    </select>
-    <select bind:value={categoryFilter} class="flt">
-      <option value="">{t("acc.allCategories")}</option>
-      {#each catalog.categories as c (c.key)}<option value={c.key}>{c.name_zh}</option>{/each}
-    </select>
-    <select bind:value={tagFilter} class="flt">
-      <option value="">{t("acc.allTags")}</option>
-      {#each catalog.tags as tg (tg.key)}<option value={tg.key}>{tg.name_zh}</option>{/each}
-    </select>
+    <Select bind:value={domainFilter} options={domainOptions} width="140px" />
+    <Select bind:value={categoryFilter} options={categoryOptions} width="140px" />
+    <Select bind:value={tagFilter} options={tagOptions} width="140px" />
   </div>
-
-  {#if batchMode}
-    <div class="batchbar card">
-      <span>{t("acc.selectedN", { n: selected.size })}</span>
-      <button class="sm" onclick={selectAll}>{t("acc.selectAll")}</button>
-      <button class="sm" onclick={clearSel}>{t("acc.clearSel")}</button>
-      <span class="spacer"></span>
-      <button class="sm danger" disabled={!selected.size} onclick={batchDelete}>
-        <Icon name="trash" size={14} /> {t("acc.deleteSel")}
-      </button>
-    </div>
-  {/if}
 
   {#if loading}
     <p class="muted">{t("common.loading")}</p>
@@ -253,11 +284,11 @@
             <button class="sm" onclick={() => (configEmail = a.email)} aria-label={t("acc.config")}>
               <Icon name="settings" size={15} />
             </button>
-            <button class="sm" onclick={() => test(a.email)} disabled={testingEmail === a.email}>
-              {testingEmail === a.email ? t("acc.testing") : t("acc.test")}
+            <button class="sm test-btn" onclick={() => test(a.email)} disabled={testingEmail === a.email}>
+              {#if testingEmail === a.email}<Spinner size={14} />{:else}{t("acc.test")}{/if}
             </button>
-            <button class="sm" onclick={() => checkHealth(a.email)} disabled={checkingEmail === a.email}>
-              {checkingEmail === a.email ? t("acc.checking") : t("acc.health")}
+            <button class="sm test-btn" onclick={() => checkHealth(a.email)} disabled={checkingEmail === a.email}>
+              {#if checkingEmail === a.email}<Spinner size={14} />{:else}{t("acc.health")}{/if}
             </button>
             <button class="sm danger ghost" onclick={() => del(a.email)} aria-label={t("common.delete")}>
               <Icon name="trash" size={15} />
@@ -302,6 +333,23 @@
     border-color: var(--primary);
     color: var(--on-primary);
   }
+  .head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .batch-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--s-xs);
+    padding-right: var(--s-xs);
+    margin-right: var(--s-xs);
+    border-right: 1px solid var(--hairline);
+  }
+  .sel-count {
+    font-size: 13px;
+    color: var(--mute);
+    white-space: nowrap;
+  }
   .filters {
     display: flex;
     flex-wrap: wrap;
@@ -326,17 +374,8 @@
   .search input:focus {
     box-shadow: none;
   }
-  .flt {
-    width: auto;
-    min-width: 130px;
-    height: 36px;
-  }
-  .batchbar {
-    display: flex;
-    align-items: center;
-    gap: var(--s-sm);
-    padding: var(--s-xs) var(--s-md);
-    font-size: 13px;
+  .test-btn {
+    min-width: 52px;
   }
   .empty {
     text-align: center;
@@ -384,8 +423,9 @@
   }
   .id {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-sm);
     min-width: 0;
     flex: 1;
   }
@@ -395,12 +435,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 0 1 auto;
+    min-width: 0;
   }
   .meta {
     display: flex;
     align-items: center;
     gap: 6px;
     color: var(--link);
+    flex-shrink: 0;
   }
   .last {
     white-space: nowrap;

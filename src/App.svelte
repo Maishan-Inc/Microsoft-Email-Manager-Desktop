@@ -3,6 +3,7 @@
   import { toast, showToast } from "./lib/toast.svelte";
   import { t } from "./lib/i18n.svelte";
   import { fade } from "svelte/transition";
+  import { appstate } from "./lib/appstate.svelte";
   import Unlock from "./components/Unlock.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import Dashboard from "./components/Dashboard.svelte";
@@ -29,6 +30,37 @@
   let showWizard = $state(false); // 新后端 + 全新安装时显示引导向导
   let view = $state<View>("dashboard");
   let selectedEmail = $state<string>("");
+  let selectedOpenMsg = $state<string>("");
+  // 锁屏点击某封新邮件：解锁后跳转打开它
+  let pendingOpen = $state<{ email: string; messageId: string } | null>(null);
+
+  // 空闲自动锁定
+  let lastActivity = Date.now();
+  function resetActivity() { lastActivity = Date.now(); }
+
+  $effect(() => {
+    if (!unlocked) return;
+    const EVENTS = ["mousemove", "keydown", "mousedown", "touchstart"] as const;
+    EVENTS.forEach(e => window.addEventListener(e, resetActivity, { passive: true }));
+    return () => EVENTS.forEach(e => window.removeEventListener(e, resetActivity));
+  });
+
+  $effect(() => {
+    const mins = appstate.autoLockMins; // reactive dependency
+    if (!unlocked || mins <= 0) return;
+    const id = setInterval(() => {
+      if (Date.now() - lastActivity > mins * 60_000) lock();
+    }, 60_000);
+    return () => clearInterval(id);
+  });
+
+  async function loadSettings() {
+    try {
+      const s = await api.getSettings();
+      appstate.blockRemoteImages = s.block_remote_images;
+      appstate.autoLockMins = s.auto_lock_mins;
+    } catch { /* ignore */ }
+  }
 
   async function loadStatus() {
     try {
@@ -50,17 +82,26 @@
   }
   loadStatus();
 
-  function onUnlocked() {
+  async function onUnlocked() {
     unlocked = true;
     initialized = true;
-    view = "dashboard";
+    if (pendingOpen) {
+      selectedEmail = pendingOpen.email;
+      selectedOpenMsg = pendingOpen.messageId;
+      pendingOpen = null;
+      view = "emails";
+    } else {
+      view = "dashboard";
+    }
+    await loadSettings();
   }
 
-  function onWizardDone() {
+  async function onWizardDone() {
     unlocked = true;
     initialized = true;
     showWizard = false;
     view = "dashboard";
+    await loadSettings();
   }
 
   async function lock() {
@@ -76,6 +117,12 @@
   }
   function openMail(email: string) {
     selectedEmail = email;
+    selectedOpenMsg = "";
+    view = "emails";
+  }
+  function openMailMsg(email: string, messageId: string) {
+    selectedEmail = email;
+    selectedOpenMsg = messageId;
     view = "emails";
   }
 
@@ -88,7 +135,7 @@
 {:else if showWizard && !unlocked}
   <OnboardingWizard onComplete={onWizardDone} />
 {:else if !unlocked}
-  <Unlock {initialized} {onUnlocked} />
+  <Unlock {initialized} {onUnlocked} onPickLocked={(email, messageId) => (pendingOpen = { email, messageId })} />
 {:else}
   <div class="shell">
     <Sidebar current={sidebarCurrent} onnavigate={navigate} onlock={lock} />
@@ -96,7 +143,7 @@
       {#key view}
         <div class="route" in:fade={{ duration: 150 }}>
           {#if view === "dashboard"}
-            <Dashboard onnavigate={navigate} />
+            <Dashboard onnavigate={navigate} onopenmail={openMailMsg} />
           {:else if view === "quick"}
             <QuickView />
           {:else if view === "accounts"}
@@ -108,8 +155,8 @@
           {:else if view === "settings"}
             <Settings />
           {:else if view === "emails"}
-            {#key selectedEmail}
-              <Emails initialEmail={selectedEmail} />
+            {#key selectedEmail + "|" + selectedOpenMsg}
+              <Emails initialEmail={selectedEmail} openMessageId={selectedOpenMsg} />
             {/key}
           {/if}
         </div>

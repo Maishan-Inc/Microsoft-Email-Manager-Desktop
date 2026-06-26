@@ -77,7 +77,7 @@ const M = {
   "acc.testing": { zh: "测试中…", en: "Testing…" },
   "acc.health": { zh: "健康", en: "Health" },
   "acc.checking": { zh: "检查中…", en: "Checking…" },
-  "acc.notify": { zh: "通知", en: "Notify" },
+  "acc.notify": { zh: "后台刷新新邮件（开启后台轮询并在有新邮件时系统通知）", en: "Background new-mail refresh (poll & notify on new mail)" },
   "acc.openMail": { zh: "查看邮件", en: "View mail" },
   "acc.export": { zh: "导出", en: "Export" },
   "acc.lastCheck": { zh: "上次检查", en: "Last check" },
@@ -108,6 +108,8 @@ const M = {
   "cfg.category": { zh: "分类", en: "Category" },
   "cfg.tags": { zh: "标签", en: "Tags" },
   "cfg.noCategory": { zh: "无分类", en: "No category" },
+  "cfg.quickView": { zh: "快捷查看", en: "Quick View" },
+  "cfg.quickViewOn": { zh: "在「快捷查看」页显示此邮箱", en: "Show this mailbox in Quick View" },
 
   // 添加邮箱
   "add.title": { zh: "添加邮箱", en: "Add Email" },
@@ -121,6 +123,11 @@ const M = {
   "add.bulkHint": { zh: "每行一个账号，使用 ---- 分隔", en: "One account per line, separated by ----" },
   "add.startImport": { zh: "开始导入", en: "Start import" },
   "add.importing": { zh: "导入中…", en: "Importing…" },
+  "add.classify": { zh: "分类与标签（可选）", en: "Category & tags (optional)" },
+  "add.applyAll": { zh: "将应用到本次导入的全部账号", en: "Applied to all imported accounts" },
+  "add.fmtImap": { zh: "IMAP：邮箱----刷新令牌----客户端ID", en: "IMAP: email----refresh_token----client_id" },
+  "add.fmtGraph": { zh: "Graph：邮箱----密码----client_id----令牌", en: "Graph: email----password----client_id----token" },
+  "add.fmtOauth2": { zh: "OAuth2：邮箱----密码----client_id----refresh_token", en: "OAuth2: email----password----client_id----refresh_token" },
 
   // 分类
   "cat.title": { zh: "分类编辑", en: "Categories" },
@@ -147,6 +154,28 @@ const M = {
   "set.version": { zh: "版本", en: "Version" },
   "set.dataDir": { zh: "数据目录", en: "Data directory" },
   "set.license": { zh: "许可", en: "License" },
+  "set.repo": { zh: "源码仓库", en: "Repository" },
+  "set.openInBrowser": { zh: "在浏览器打开", en: "Open in browser" },
+  "set.exportVerify": { zh: "请验证身份后导出数据", en: "Verify your identity to export" },
+  "set.exportVerifyDesc2fa": { zh: "输入 2FA 动态码以导出数据", en: "Enter your 2FA code to export data" },
+  "set.exportVerifyDescPw": { zh: "输入主密码以导出数据", en: "Enter your master password to export data" },
+  "set.recovery": { zh: "恢复助记词", en: "Recovery phrase" },
+  "set.recoveryDesc": { zh: "丢失助记词？验证身份后可重新生成一组，旧助记词立即失效。", en: "Lost your phrase? Regenerate a new one after verifying — the old phrase stops working immediately." },
+  "set.regenerate": { zh: "我已丢失助记词，重新生成", en: "Lost it — regenerate" },
+  "set.regenVerify": { zh: "验证身份以重新生成助记词", en: "Verify to regenerate the phrase" },
+  "set.regenDone": { zh: "新助记词已生成，请抄写保存", en: "New phrase generated — write it down" },
+
+  // 自动锁定 + 远程图片屏蔽
+  "set.autoLock": { zh: "空闲自动锁定", en: "Auto-lock on idle" },
+  "set.autoLockMins": { zh: "超时（分钟，0 = 关闭）", en: "Timeout (minutes, 0 = disabled)" },
+  "set.blockImages": { zh: "屏蔽邮件远程图片", en: "Block remote images in emails" },
+  "set.blockImagesDesc": { zh: "防止追踪像素获取你的 IP 与阅读状态（推荐开启）。", en: "Prevents tracking pixels from leaking your IP and read time (recommended)." },
+  "set.unblockWarn": { zh: "关闭后邮件中的远程图片将被加载，发件人可借此追踪你的 IP 与阅读时间。确认关闭？", en: "Remote images will load once disabled. Senders may track your IP and read time. Confirm?" },
+  "set.unblockCountdown": { zh: "{s} 秒后可确认…", en: "Confirm in {s}s…" },
+  "set.unblockConfirm": { zh: "确认关闭", en: "Confirm disable" },
+  "set.unblockVerify": { zh: "请验证身份", en: "Verify identity" },
+  "set.unblockPrompt2fa": { zh: "输入 2FA 动态码", en: "Enter 2FA code" },
+  "set.unblockPromptPw": { zh: "输入主密码", en: "Enter master password" },
 
   // 邮件
   "mail.inbox": { zh: "收件箱", en: "Inbox" },
@@ -175,8 +204,18 @@ const M = {
   "mail.fUnread": { zh: "未读", en: "Unread" },
   "mail.fAllStatus": { zh: "全部状态", en: "All status" },
   "mail.openInQuick": { zh: "在快捷查看打开", en: "Open in Quick View" },
-  "quick.empty": { zh: "尚未指定邮箱。在邮件页点击「在快捷查看打开」即可固定一个邮箱在此显示。", en: "No mailbox pinned. Use “Open in Quick View” on the mail page to pin one here." },
+  "mail.addQuick": { zh: "加入快捷查看", en: "Add to Quick View" },
+  "mail.removeQuick": { zh: "移出快捷查看", en: "Remove from Quick View" },
+  "mail.inQuick": { zh: "已在快捷查看", en: "In Quick View" },
+  "mail.copyEmail": { zh: "复制邮箱地址", en: "Copy email address" },
+  "mail.codeDetected": { zh: "验证码", en: "Code" },
+  "mail.copyCode": { zh: "复制验证码", en: "Copy code" },
+  "mail.upToDate": { zh: "已是最新", en: "Up to date" },
+  "mail.newMailN": { zh: "{n} 封新邮件", en: "{n} new mail" },
+  "quick.empty": { zh: "尚未指定邮箱。在邮件页点击「加入快捷查看」即可固定一个邮箱在此显示。", en: "No mailbox pinned. Use “Add to Quick View” on the mail page to pin one here." },
+  "quick.emptyPinned": { zh: "还没有固定到快捷查看的邮箱。在邮件页点「加入快捷查看」，或在邮箱配置里开启开关。", en: "No mailboxes pinned yet. Use “Add to Quick View” on a mail page, or toggle it in mailbox settings." },
   "quick.change": { zh: "更换邮箱", en: "Change mailbox" },
+  "quick.pinnedOnly": { zh: "仅显示已固定的邮箱", en: "Pinned mailboxes only" },
 
   // 解锁 / 首次设置
   "unlock.subtitleSetup": { zh: "首次使用，请设置一个主密码", en: "First run — set a master password" },
@@ -200,6 +239,9 @@ const M = {
   "unlock.setNewPw": { zh: "保存新密码", en: "Save new password" },
   "unlock.backToUnlock": { zh: "返回解锁", en: "Back to unlock" },
   "unlock.recovered": { zh: "恢复成功，请设置新主密码", en: "Recovered — set a new master password" },
+  "unlock.lockedTitle": { zh: "锁定期间的新邮件", en: "New mail while locked" },
+  "unlock.lockedHint": { zh: "已选中，解锁后将自动打开该邮件", en: "Selected — it will open after you unlock" },
+  "unlock.lockedCopyLocked": { zh: "验证码（需解锁）", en: "Code (unlock first)" },
 
   // ===== 首启引导向导 =====
   "ob.splash.tagline": { zh: "本地加密 · 多账号 · 隐私优先", en: "Local-encrypted · Multi-account · Privacy-first" },

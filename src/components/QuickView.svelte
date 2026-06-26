@@ -4,14 +4,12 @@
   import Emails from "./Emails.svelte";
 </script>
 
-{#if !quickview.email}
+{#if quickview.emails.length === 0}
   <div class="empty-wrap">
-    <div class="card empty muted">{t("quick.empty")}</div>
+    <div class="card empty muted">{t("quick.emptyPinned")}</div>
   </div>
 {:else}
-  {#key quickview.email}
-    <Emails initialEmail={quickview.email} />
-  {/key}
+  <Emails quick={true} />
 {/if}
 
 <style>

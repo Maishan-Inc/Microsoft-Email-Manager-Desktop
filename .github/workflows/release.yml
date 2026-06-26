@@ -1,0 +1,74 @@
+name: release
+
+# 推送 v* 标签（如 v1.0.0）或手动触发，在三端 runner 上分别打包并上传到一个 GitHub Release。
+# Windows → NSIS 安装程序（中文/英文语言选择器）；macOS → 通用版 .dmg；Linux → .deb / .AppImage / .rpm。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest      # Apple Silicon + Intel 通用包
+            args: "--target universal-apple-darwin"
+          - platform: ubuntu-22.04      # deb / AppImage / rpm
+            args: ""
+          - platform: windows-latest    # NSIS setup.exe（中英文）
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            curl wget file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Microsoft-Email-Manager ${{ github.ref_name }}"
+          releaseBody: "自动构建的三端安装包（Windows / macOS / Linux）。"
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

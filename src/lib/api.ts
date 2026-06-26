@@ -17,6 +17,7 @@ import type {
   SecuritySetup,
   UnlockResult,
   CredsReveal,
+  LockedMail,
 } from "./types";
 
 export const api = {
@@ -53,9 +54,19 @@ export const api = {
     invoke<void>("update_classification", { email, categoryKey, tagKeys }),
   revealCredentials: (email: string, secret: string) =>
     invoke<CredsReveal>("reveal_credentials", { email, secret }),
+  verifyAuth: (secret: string) => invoke<void>("verify_auth", { secret }),
+  regenerateMnemonic: (secret: string) =>
+    invoke<MnemonicGen>("regenerate_mnemonic", { secret }),
+  setTwoFactor: (totpSecret: string | null) =>
+    invoke<void>("set_two_factor", { totpSecret }),
   authModeInfo: () => invoke<boolean>("auth_mode_info"),
-  importAccounts: (text: string, authMethod: string) =>
-    invoke<ImportResult>("import_accounts", { text, authMethod }),
+  importAccounts: (
+    text: string,
+    authMethod: string,
+    categoryKey: string | null,
+    tagKeys: string[],
+  ) =>
+    invoke<ImportResult>("import_accounts", { text, authMethod, categoryKey, tagKeys }),
   testCredentials: (creds: AccountCredentials) =>
     invoke<void>("test_credentials", { creds }),
   testAccount: (email: string) => invoke<void>("test_account", { email }),
@@ -118,7 +129,7 @@ export const api = {
   // 导出
   exportAccounts: (
     path: string,
-    format: "json" | "csv",
+    format: "json" | "csv" | "txt",
     includeCredentials: boolean,
     encrypt: boolean,
   ) =>
@@ -128,6 +139,14 @@ export const api = {
       includeCredentials,
       encrypt,
     }),
+
+  // 打开外部链接
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
+
+  // 锁后监视（令牌即焚）
+  setActiveMailbox: (email: string | null) =>
+    invoke<void>("set_active_mailbox", { email }),
+  lockedItems: () => invoke<LockedMail[]>("locked_items"),
 };
 
 /** 把后端抛出的错误统一转成字符串 */
