@@ -1,5 +1,7 @@
 # Microsoft Email Manager Desktop · 桌面端
 
+[简体中文](README.md) | [English](README.en.md)
+
 本地化的 Microsoft 邮箱账户与邮件管理桌面应用。由 [Microsoft-Email-Manager](https://github.com/Maishan-Inc/Microsoft-Email-Manager)（FastAPI Web 版）重构为 **Tauri + Rust + Svelte** 单机桌面端。
 
 ## 为什么是这套技术栈
